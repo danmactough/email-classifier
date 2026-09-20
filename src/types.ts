@@ -50,6 +50,8 @@ export interface ClassifiedEmail {
   email: ParsedEmail;
   /** Full SDK response: model, typed answers, token usage. */
   result: SystemOneResult<EmailQuestions>;
+  /** True when the body was trimmed to fit the API token budget. */
+  truncated: boolean;
 }
 
 /** Counts for the run. */

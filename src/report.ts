@@ -15,6 +15,8 @@ export interface ReportRow {
   durationMs: number | null;
   /** Classification error message, or null when there was none. */
   error: string | null;
+  /** True when the body was trimmed to fit the API token budget. */
+  truncated: boolean;
 }
 
 /** Run metadata rendered at the top of the page. */
@@ -140,6 +142,9 @@ export function renderRow(row: ReportRow, index: number): string {
   if (row.durationMs != null) {
     answers += `<div class="duration">${formatDuration(row.durationMs)}</div>`;
   }
+  if (row.truncated) {
+    answers += '<div class="truncated">body truncated</div>';
+  }
   const title = row.email.subject || row.email.messageId;
   return [
     "<tr>",
@@ -196,6 +201,7 @@ tbody tr:hover { background: #fafbfc; }
 .dry { color: #9ca3af; font-style: italic; }
 .failed { color: #b91c1c; font-style: italic; }
 .duration { margin-top: 2px; color: #9ca3af; font-size: 11px; }
+.truncated { margin-top: 2px; color: #b45309; font-size: 11px; }
 button.view, button.close { cursor: pointer; font: inherit; font-size: 12px; padding: 2px 9px; border: 1px solid #d1d5db; border-radius: 6px; background: #fff; color: #374151; }
 button.view:hover, button.close:hover { background: #f3f4f6; }
 .modal { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; padding: 24px; background: rgba(17,24,39,.55); }

@@ -1,7 +1,7 @@
 import { createReadStream } from "node:fs";
 import { pathToFileURL } from "node:url";
 import { TypeSafeClient } from "@typesafe-ai/sdk";
-import { classifyEmail } from "./classify.ts";
+import { classifyEmail, resolveMaxBodyChars } from "./classify.ts";
 import { parseMbox } from "./mbox.ts";
 import { buildQuestions } from "./questions.ts";
 import { openReport } from "./report.ts";
@@ -48,6 +48,7 @@ export async function main(): Promise<void> {
   if (!path) throw new Error("usage: tsx src/app.ts <mbox-path>");
 
   const client = isLiveEnabled(process.env) ? new TypeSafeClient() : null;
+  const maxBodyChars = resolveMaxBodyChars(process.env);
   const startedAt = new Date();
   const writer = await openReport({
     meta: { source: path, live: client !== null, startedAt },
@@ -74,6 +75,7 @@ export async function main(): Promise<void> {
     let result: ClassifiedEmail["result"] | null = null;
     let durationMs: number | null = null;
     let failure: string | null = null;
+    let truncated = false;
     if (client) {
       const started = performance.now();
       try {
@@ -81,11 +83,13 @@ export async function main(): Promise<void> {
           client,
           email: item.email,
           questions: buildQuestions({ email: item.email }),
+          maxBodyChars,
         });
         durationMs = performance.now() - started;
         classificationMs += durationMs;
         classified.push(email);
         result = email.result;
+        truncated = email.truncated;
       } catch (cause) {
         durationMs = performance.now() - started;
         classificationErrors += 1;
@@ -93,7 +97,13 @@ export async function main(): Promise<void> {
         console.error("classification failed", item.email.messageId, cause);
       }
     }
-    await writer.addRow({ email: item.email, result, durationMs, error: failure });
+    await writer.addRow({
+      email: item.email,
+      result,
+      durationMs,
+      error: failure,
+      truncated,
+    });
   }
 
   console.log("summary", JSON.stringify(summary));

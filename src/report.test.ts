@@ -78,6 +78,7 @@ describe("renderRow", () => {
         result: null,
         durationMs: null,
         error: null,
+        truncated: false,
       },
       3
     );
@@ -101,6 +102,7 @@ describe("renderRow", () => {
         result: null,
         durationMs: null,
         error: null,
+        truncated: false,
       },
       0
     );
@@ -114,13 +116,25 @@ describe("renderRow", () => {
 
   it("shows a placeholder for a dry run and the answers for a result", () => {
     const dry = renderRow(
-      { email: email({ body: "x" }), result: null, durationMs: null, error: null },
+      {
+        email: email({ body: "x" }),
+        result: null,
+        durationMs: null,
+        error: null,
+        truncated: false,
+      },
       0
     );
     expect(dry).toContain("dry run");
 
     const live = renderRow(
-      { email: email({ body: "x" }), result: RESULT, durationMs: null, error: null },
+      {
+        email: email({ body: "x" }),
+        result: RESULT,
+        durationMs: null,
+        error: null,
+        truncated: false,
+      },
       1
     );
     expect(live).toContain("trial_expiration_notice");
@@ -131,7 +145,13 @@ describe("renderRow", () => {
 
   it("shows the classification duration and marks a failure", () => {
     const live = renderRow(
-      { email: email({ body: "x" }), result: RESULT, durationMs: 456, error: null },
+      {
+        email: email({ body: "x" }),
+        result: RESULT,
+        durationMs: 456,
+        error: null,
+        truncated: false,
+      },
       7
     );
     expect(live).toContain("456 ms");
@@ -142,6 +162,7 @@ describe("renderRow", () => {
         result: null,
         durationMs: 210,
         error: '400 {"detail":{"error_type":"max_tokens_exceeded"}}',
+        truncated: false,
       },
       8
     );
@@ -150,10 +171,31 @@ describe("renderRow", () => {
     expect(failed).toContain("210 ms");
 
     const dry = renderRow(
-      { email: email({ body: "x" }), result: null, durationMs: null, error: null },
+      {
+        email: email({ body: "x" }),
+        result: null,
+        durationMs: null,
+        error: null,
+        truncated: false,
+      },
       9
     );
     expect(dry).toContain("dry run");
+  });
+
+  it("notes a truncated body", () => {
+    const row = renderRow(
+      {
+        email: email({ body: "x" }),
+        result: RESULT,
+        durationMs: 10,
+        error: null,
+        truncated: true,
+      },
+      11
+    );
+
+    expect(row).toContain("body truncated");
   });
 
   it("renders an HTML body in a locked-down iframe, falling back to pre", () => {
@@ -163,6 +205,7 @@ describe("renderRow", () => {
         result: null,
         durationMs: null,
         error: null,
+        truncated: false,
       },
       5
     );
@@ -175,7 +218,13 @@ describe("renderRow", () => {
     expect(withHtml).not.toContain("<p>Hi <b>there</b></p>");
 
     const noHtml = renderRow(
-      { email: email({ htmlBody: null, body: "plain text" }), result: null, durationMs: null, error: null },
+      {
+        email: email({ htmlBody: null, body: "plain text" }),
+        result: null,
+        durationMs: null,
+        error: null,
+        truncated: false,
+      },
       6
     );
     expect(noHtml).toContain("<pre>plain text</pre>");
@@ -262,6 +311,7 @@ describe("openReport", () => {
         result: null,
         durationMs: null,
         error: null,
+        truncated: false,
       });
       await writer.close({
         total: 1,
