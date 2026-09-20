@@ -1,8 +1,9 @@
 import { createReadStream } from "node:fs";
 import { pathToFileURL } from "node:url";
-import { choice, TypeSafeClient } from "@typesafe-ai/sdk";
+import { TypeSafeClient } from "@typesafe-ai/sdk";
 import { classifyEmail } from "./classify.ts";
 import { parseMbox } from "./mbox.ts";
+import { buildQuestions } from "./questions.ts";
 import type { ClassifiedEmail, ParsedEmail, ParseError, RunSummary } from "./types.ts";
 
 const FILTER = /invoice|receipt/i;
@@ -33,13 +34,6 @@ export async function main(): Promise<void> {
   }
 
   const client = isLiveEnabled(process.env) ? new TypeSafeClient() : null;
-  const questions = {
-    category: choice("What kind of email is this?", {
-      personal: null,
-      work: null,
-      other: null,
-    }),
-  };
 
   const summary: RunSummary = { total: 0, success: 0, error: 0 };
   const errors: ParseError[] = [];
@@ -59,7 +53,13 @@ export async function main(): Promise<void> {
     matched += 1;
     if (!client) continue;
     try {
-      classified.push(await classifyEmail({ client, email: item.email, questions }));
+      classified.push(
+        await classifyEmail({
+          client,
+          email: item.email,
+          questions: buildQuestions({ email: item.email }),
+        })
+      );
     } catch (error) {
       console.error("classification failed", item.email.messageId, error);
     }

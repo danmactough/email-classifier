@@ -1,4 +1,5 @@
-import type { Questions, SystemOneResult } from "@typesafe-ai/sdk";
+import type { SystemOneResult } from "@typesafe-ai/sdk";
+import type { EmailQuestions } from "./questions.ts";
 
 /** One message extracted from an mbox archive. */
 export interface ParsedEmail {
@@ -34,13 +35,21 @@ export type MboxItem =
   | { ok: true; email: ParsedEmail }
   | { ok: false; error: ParseError };
 
+/** Candidate spans the sender-extraction questions choose between. */
+export interface SenderCandidates {
+  /** Over-found person/brand name sequences, deduped; may be empty. */
+  names: string[];
+  /** Email addresses found anywhere in the message, deduped; may be empty. */
+  emails: string[];
+}
+
 /** One email plus everything Jev returned for it. */
 export interface ClassifiedEmail {
   /** Set from `email.messageId`. */
   id: string;
   email: ParsedEmail;
   /** Full SDK response: model, typed answers, token usage. */
-  result: SystemOneResult<Questions>;
+  result: SystemOneResult<EmailQuestions>;
 }
 
 /** Counts for the run. */
