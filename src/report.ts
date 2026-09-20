@@ -130,6 +130,7 @@ h1 { font-size: 20px; margin: 0; }
 .badge.dry { background: #e5e7eb; color: #4b5563; }
 .meta { color: #6b7280; font-size: 13px; margin: 6px 0 18px; }
 .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 2px rgba(0,0,0,.05); }
+.scroll { overflow: auto; max-height: 75vh; }
 table { border-collapse: collapse; width: 100%; }
 thead th { position: sticky; top: 0; z-index: 1; background: #fafbfc; padding: 10px 12px; text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: #6b7280; border-bottom: 1px solid #e5e7eb; }
 tbody td { padding: 10px 12px; border-bottom: 1px solid #f1f2f4; vertical-align: top; }
@@ -192,6 +193,7 @@ function renderHead(meta: ReportMeta): string {
 </header>
 <p class="meta">source ${escapeHtml(meta.source)} · started ${escapeHtml(meta.startedAt.toISOString())}</p>
 <div class="card">
+<div class="scroll">
 <table>
 <thead><tr><th>Message-ID</th><th>From</th><th>Date</th><th>Subject</th><th>Body</th><th>Jev responses</th></tr></thead>
 <tbody>
@@ -201,6 +203,7 @@ function renderHead(meta: ReportMeta): string {
 function renderTail(summary: ReportSummary): string {
   return `</tbody>
 </table>
+</div>
 </div>
 ${renderSummary(summary)}
 </div>

@@ -175,6 +175,7 @@ describe("openReport", () => {
       expect(html).toContain("&lt;row@x&gt;");
       expect(html).toContain("hello");
       expect(html).toContain("matched 1");
+      expect(html).toContain('class="scroll"');
     } finally {
       await rm(dir, { recursive: true, force: true });
     }
