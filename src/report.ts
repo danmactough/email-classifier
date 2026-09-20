@@ -83,6 +83,7 @@ export function renderRow(row: ReportRow, index: number): string {
     "<tr>",
     `<td class="mono">${escapeHtml(row.email.messageId)}</td>`,
     `<td>${escapeHtml(row.email.from)}</td>`,
+    `<td>${escapeHtml(row.email.date)}</td>`,
     `<td>${escapeHtml(row.email.subject)}</td>`,
     `<td>${escapeHtml(preview)} <button class="view" data-modal="${id}">View</button>`,
     `<div class="modal" id="${id}" hidden><div class="modal-box"><button class="close">Close</button><pre>${escapeHtml(row.email.body)}</pre></div></div>`,
@@ -143,7 +144,7 @@ function renderHead(meta: ReportMeta): string {
 <h1>Jev report</h1>
 <p class="meta">source: ${escapeHtml(meta.source)} · ${meta.live ? "live" : "dry run"} · started ${escapeHtml(meta.startedAt.toISOString())}</p>
 <table>
-<thead><tr><th>Message-ID</th><th>From</th><th>Subject</th><th>Body</th><th>Jev responses</th></tr></thead>
+<thead><tr><th>Message-ID</th><th>From</th><th>Date</th><th>Subject</th><th>Body</th><th>Jev responses</th></tr></thead>
 <tbody>
 `;
 }

@@ -63,12 +63,13 @@ describe("reportPath", () => {
 });
 
 describe("renderRow", () => {
-  it("renders the five columns and embeds the body in a modal", () => {
+  it("renders the six columns and embeds the body in a modal", () => {
     const row = renderRow(
       {
         email: email({
           messageId: "<a@b>",
           from: "A <a@b>",
+          date: "Mon, 3 Jan 2022 09:12:00 -0500",
           subject: "S",
           body: "line1\nline2",
         }),
@@ -77,7 +78,8 @@ describe("renderRow", () => {
       3
     );
 
-    expect((row.match(/<td/g) ?? []).length).toBe(5);
+    expect((row.match(/<td/g) ?? []).length).toBe(6);
+    expect(row).toContain("Mon, 3 Jan 2022 09:12:00 -0500");
     expect(row).toContain('data-modal="body-3"');
     expect(row).toContain('<div class="modal" id="body-3"');
     expect(row).toContain("line1\nline2");
