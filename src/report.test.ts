@@ -1,0 +1,156 @@
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { describe, expect, it } from "vitest";
+import {
+  openReport,
+  renderRow,
+  renderSummary,
+  reportPath,
+  type ReportRow,
+} from "./report.ts";
+import type { ParsedEmail } from "./types.ts";
+
+const RESULT = {
+  model: "jev-test",
+  answers: {
+    related_to_subscription: { type: "noul", noul: 0.97 },
+    related_to_physical_goods: { type: "noul", noul: 0.02 },
+    related_to_services: { type: "noul", noul: 0.95 },
+    category: {
+      type: "choice",
+      choice: "trial_expiration_notice",
+      confidence: 0.88,
+      probabilities: { trial_expiration_notice: 0.88 },
+    },
+    sender_name: {
+      type: "choice",
+      choice: "none",
+      confidence: 0.6,
+      probabilities: { none: 0.6 },
+    },
+    sender_email: {
+      type: "choice",
+      choice: "none",
+      confidence: 0.6,
+      probabilities: { none: 0.6 },
+    },
+  },
+  usage: { input_tokens: 1, output_tokens: 1 },
+} as unknown as NonNullable<ReportRow["result"]>;
+
+function email(overrides: Partial<ParsedEmail>): ParsedEmail {
+  return {
+    messageId: "<x@example.com>",
+    from: "",
+    date: "",
+    dateParsed: null,
+    subject: "",
+    body: "",
+    htmlBody: null,
+    raw: "",
+    ...overrides,
+  };
+}
+
+describe("reportPath", () => {
+  it("names the file with the epoch ms of the start time", () => {
+    const target = reportPath({ startedAt: new Date(1700000000000) });
+
+    expect(target.startsWith("/")).toBe(true);
+    expect(target.endsWith("jev-report-1700000000000.html")).toBe(true);
+  });
+});
+
+describe("renderRow", () => {
+  it("renders the five columns and embeds the body in a modal", () => {
+    const row = renderRow(
+      {
+        email: email({
+          messageId: "<a@b>",
+          from: "A <a@b>",
+          subject: "S",
+          body: "line1\nline2",
+        }),
+        result: null,
+      },
+      3
+    );
+
+    expect((row.match(/<td/g) ?? []).length).toBe(5);
+    expect(row).toContain('data-modal="body-3"');
+    expect(row).toContain('<div class="modal" id="body-3"');
+    expect(row).toContain("line1\nline2");
+  });
+
+  it("escapes every message-derived field", () => {
+    const row = renderRow(
+      {
+        email: email({
+          messageId: "<x&y>",
+          from: "a<b>",
+          subject: "s<t>",
+          body: "b&c<d>",
+        }),
+        result: null,
+      },
+      0
+    );
+
+    expect(row).toContain("&lt;x&amp;y&gt;");
+    expect(row).toContain("a&lt;b&gt;");
+    expect(row).toContain("s&lt;t&gt;");
+    expect(row).toContain("b&amp;c&lt;d&gt;");
+    expect(row).not.toContain("<x&y>");
+  });
+
+  it("shows a placeholder for a dry run and the answers for a result", () => {
+    const dry = renderRow({ email: email({ body: "x" }), result: null }, 0);
+    expect(dry).toContain("dry run");
+
+    const live = renderRow({ email: email({ body: "x" }), result: RESULT }, 1);
+    expect(live).toContain("trial_expiration_notice");
+    expect(live).toContain("0.97");
+    expect(live).toContain("0.88");
+    expect(live).not.toContain("dry run");
+  });
+});
+
+describe("renderSummary", () => {
+  it("reports the four counts", () => {
+    const footer = renderSummary({ total: 5, success: 4, error: 1, matched: 2 });
+
+    expect(footer).toContain("total 5");
+    expect(footer).toContain("parsed 4");
+    expect(footer).toContain("errors 1");
+    expect(footer).toContain("matched 2");
+  });
+});
+
+describe("openReport", () => {
+  it("writes the head, a row, and the footer to the epoch-named file", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "jev-report-"));
+    try {
+      const startedAt = new Date(1700000000000);
+      const writer = await openReport({
+        meta: { source: "sample.mbox", live: false, startedAt },
+        dir,
+      });
+      await writer.addRow({
+        email: email({ messageId: "<row@x>", body: "hello" }),
+        result: null,
+      });
+      await writer.close({ total: 1, success: 1, error: 0, matched: 1 });
+
+      expect(writer.path).toBe(reportPath({ startedAt, dir }));
+      const html = await readFile(writer.path, "utf8");
+      expect(html.startsWith("<!doctype html>")).toBe(true);
+      expect(html.trimEnd().endsWith("</html>")).toBe(true);
+      expect(html).toContain("&lt;row@x&gt;");
+      expect(html).toContain("hello");
+      expect(html).toContain("matched 1");
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+});

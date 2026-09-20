@@ -4,6 +4,7 @@ import { TypeSafeClient } from "@typesafe-ai/sdk";
 import { classifyEmail } from "./classify.ts";
 import { parseMbox } from "./mbox.ts";
 import { buildQuestions } from "./questions.ts";
+import { openReport } from "./report.ts";
 import type { ClassifiedEmail, ParsedEmail, ParseError, RunSummary } from "./types.ts";
 
 const FILTER = /invoice|receipt/i;
@@ -34,6 +35,10 @@ export async function main(): Promise<void> {
   }
 
   const client = isLiveEnabled(process.env) ? new TypeSafeClient() : null;
+  const startedAt = new Date();
+  const writer = await openReport({
+    meta: { source: path, live: client !== null, startedAt },
+  });
 
   const summary: RunSummary = { total: 0, success: 0, error: 0 };
   const errors: ParseError[] = [];
@@ -51,18 +56,21 @@ export async function main(): Promise<void> {
     summary.success += 1;
     if (!shouldClassify(item.email)) continue;
     matched += 1;
-    if (!client) continue;
-    try {
-      classified.push(
-        await classifyEmail({
+    let result: ClassifiedEmail["result"] | null = null;
+    if (client) {
+      try {
+        const email = await classifyEmail({
           client,
           email: item.email,
           questions: buildQuestions({ email: item.email }),
-        })
-      );
-    } catch (error) {
-      console.error("classification failed", item.email.messageId, error);
+        });
+        classified.push(email);
+        result = email.result;
+      } catch (error) {
+        console.error("classification failed", item.email.messageId, error);
+      }
     }
+    await writer.addRow({ email: item.email, result });
   }
 
   console.log("summary", JSON.stringify(summary));
@@ -70,6 +78,9 @@ export async function main(): Promise<void> {
     console.log(`[${error.reason}] ${error.detail} :: ${error.snippet}`);
   }
   console.log(`matched ${matched} of ${summary.success}`);
+
+  await writer.close({ ...summary, matched });
+  console.log("report", writer.path);
 
   if (!client) {
     console.log(
