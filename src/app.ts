@@ -58,6 +58,7 @@ export async function main(): Promise<void> {
   const classified: ClassifiedEmail[] = [];
   let matched = 0;
   let classificationMs = 0;
+  let classificationErrors = 0;
 
   const source = createReadStream(path, { encoding: "utf8" });
   for await (const item of parseMbox(source)) {
@@ -72,6 +73,7 @@ export async function main(): Promise<void> {
     matched += 1;
     let result: ClassifiedEmail["result"] | null = null;
     let durationMs: number | null = null;
+    let failure: string | null = null;
     if (client) {
       const started = performance.now();
       try {
@@ -84,12 +86,14 @@ export async function main(): Promise<void> {
         classificationMs += durationMs;
         classified.push(email);
         result = email.result;
-      } catch (error) {
+      } catch (cause) {
         durationMs = performance.now() - started;
-        console.error("classification failed", item.email.messageId, error);
+        classificationErrors += 1;
+        failure = cause instanceof Error ? cause.message : String(cause);
+        console.error("classification failed", item.email.messageId, cause);
       }
     }
-    await writer.addRow({ email: item.email, result, durationMs });
+    await writer.addRow({ email: item.email, result, durationMs, error: failure });
   }
 
   console.log("summary", JSON.stringify(summary));
@@ -97,6 +101,9 @@ export async function main(): Promise<void> {
     console.log(`[${error.reason}] ${error.detail} :: ${error.snippet}`);
   }
   console.log(`matched ${matched} of ${summary.success}`);
+  if (classificationErrors > 0) {
+    console.log("classification errors", classificationErrors);
+  }
 
   await writer.close({
     ...summary,
@@ -104,6 +111,7 @@ export async function main(): Promise<void> {
     elapsedMs: Date.now() - startedAt.getTime(),
     classificationMs,
     classified: classified.length,
+    classificationErrors,
   });
   console.log("report", writer.path);
 

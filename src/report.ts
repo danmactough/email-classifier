@@ -13,6 +13,8 @@ export interface ReportRow {
   result: SystemOneResult<EmailQuestions> | null;
   /** Time spent classifying this email, or null when it was not classified. */
   durationMs: number | null;
+  /** Classification error message, or null when there was none. */
+  error: string | null;
 }
 
 /** Run metadata rendered at the top of the page. */
@@ -37,6 +39,8 @@ export interface ReportSummary {
   classificationMs: number;
   /** Number of emails actually sent to Jev. */
   classified: number;
+  /** Number of classifications that failed. */
+  classificationErrors: number;
 }
 
 export interface ReportWriter {
@@ -96,6 +100,9 @@ export function renderStats(summary: ReportSummary): string {
     `avg classification ${formatDuration(average)}`,
   ];
   if (summary.classified > 0) parts.push(`classified ${summary.classified}`);
+  if (summary.classificationErrors > 0) {
+    parts.push(`classification errors ${summary.classificationErrors}`);
+  }
   return parts.join(" · ");
 }
 
@@ -125,8 +132,8 @@ export function renderRow(row: ReportRow, index: number): string {
   let answers: string;
   if (row.result) {
     answers = renderAnswers(row.result);
-  } else if (row.durationMs != null) {
-    answers = '<span class="failed">failed</span>';
+  } else if (row.error) {
+    answers = `<span class="failed">failed: ${escapeHtml(row.error)}</span>`;
   } else {
     answers = '<span class="dry">dry run</span>';
   }
@@ -150,7 +157,11 @@ export function renderRow(row: ReportRow, index: number): string {
 
 /** Render the summary footer. */
 export function renderSummary(summary: ReportSummary): string {
-  return `<footer class="summary">total ${summary.total} · parsed ${summary.success} · errors ${summary.error} · matched ${summary.matched}</footer>`;
+  const failures =
+    summary.classificationErrors > 0
+      ? ` · classification errors ${summary.classificationErrors}`
+      : "";
+  return `<footer class="summary">total ${summary.total} · parsed ${summary.success} · errors ${summary.error} · matched ${summary.matched}${failures}</footer>`;
 }
 
 const STYLE = `
