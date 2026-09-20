@@ -106,7 +106,7 @@ export function renderRow(row: ReportRow, index: number): string {
     `<td>${escapeHtml(row.email.from)}</td>`,
     `<td>${escapeHtml(row.email.date)}</td>`,
     `<td class="subject">${escapeHtml(row.email.subject)}</td>`,
-    `<td class="body-cell"><span class="preview">${escapeHtml(preview)}</span> <button class="view" data-modal="${id}">View</button>`,
+    `<td><span class="preview">${escapeHtml(preview)}</span> <button class="view" data-modal="${id}">View</button>`,
     `<div class="modal" id="${id}" hidden><div class="modal-box"><div class="modal-head"><span class="title">${escapeHtml(title)}</span><button class="close">Close</button></div><div class="modal-body">${renderBody(row.email)}</div></div></div>`,
     "</td>",
     `<td class="answers">${answers}</td>`,
@@ -131,21 +131,22 @@ h1 { font-size: 20px; margin: 0; }
 .meta { color: #6b7280; font-size: 13px; margin: 6px 0 18px; }
 .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 2px rgba(0,0,0,.05); }
 .scroll { overflow: auto; max-height: 75vh; }
-table { border-collapse: collapse; width: 100%; }
-thead th { position: sticky; top: 0; z-index: 1; background: #fafbfc; padding: 10px 12px; text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: #6b7280; border-bottom: 1px solid #e5e7eb; }
+table { border-collapse: collapse; width: 100%; min-width: 64rem; table-layout: fixed; }
+td, th { overflow-wrap: anywhere; }
+thead th { position: sticky; top: 0; z-index: 1; background: #fafbfc; padding: 10px 12px; text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: #6b7280; border-bottom: 1px solid #e5e7eb; white-space: nowrap; }
 tbody td { padding: 10px 12px; border-bottom: 1px solid #f1f2f4; vertical-align: top; }
 tbody tr:last-child td { border-bottom: 0; }
 tbody tr:hover { background: #fafbfc; }
-.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; color: #374151; white-space: nowrap; }
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; color: #374151; }
 .subject { font-weight: 600; }
 .preview { color: #4b5563; }
-.body-cell { max-width: 26rem; }
-.answers { display: grid; gap: 5px; }
-.answer { display: grid; grid-template-columns: 10.5rem auto 1fr; gap: 8px; align-items: center; }
-.answer .key { color: #6b7280; font-size: 12px; }
+.answers { display: block; }
+.answer { margin-bottom: 6px; }
+.answer:last-child { margin-bottom: 0; }
+.answer .key { display: block; color: #6b7280; font-size: 11px; line-height: 1.35; }
 .answer .value { font-weight: 600; }
-.answer .conf { color: #9ca3af; font-size: 12px; }
-.bar { display: block; height: 6px; border-radius: 999px; background: #eef0f2; overflow: hidden; }
+.answer .conf { color: #9ca3af; font-size: 12px; margin-left: 4px; }
+.bar { display: inline-block; width: 72px; height: 6px; margin-left: 6px; vertical-align: middle; border-radius: 999px; background: #eef0f2; overflow: hidden; }
 .bar span { display: block; height: 100%; background: #2563eb; border-radius: 999px; }
 .dry { color: #9ca3af; font-style: italic; }
 button.view, button.close { cursor: pointer; font: inherit; font-size: 12px; padding: 2px 9px; border: 1px solid #d1d5db; border-radius: 6px; background: #fff; color: #374151; }
@@ -195,6 +196,14 @@ function renderHead(meta: ReportMeta): string {
 <div class="card">
 <div class="scroll">
 <table>
+<colgroup>
+<col style="width:15%">
+<col style="width:13%">
+<col style="width:11%">
+<col style="width:17%">
+<col style="width:24%">
+<col style="width:20%">
+</colgroup>
 <thead><tr><th>Message-ID</th><th>From</th><th>Date</th><th>Subject</th><th>Body</th><th>Jev responses</th></tr></thead>
 <tbody>
 `;
