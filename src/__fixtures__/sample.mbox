@@ -1,0 +1,54 @@
+From billing@example.com Mon Jan 03 09:12:00 2022
+Message-ID: <invoice-001@example.com>
+From: Billing <billing@example.com>
+To: dan@example.com
+Subject: Invoice for March
+Date: Mon, 3 Jan 2022 09:12:00 -0500
+Content-Type: text/plain; charset="utf-8"
+
+Your March invoice is attached. Total due: $42.00.
+Please pay by the 15th.
+
+From noreply@shop.example.com Tue Feb 01 10:00:00 2022
+Message-ID: <receipt-002@example.com>
+From: Shop <noreply@shop.example.com>
+To: dan@example.com
+Subject: Your receipt
+Date: Tue, 1 Feb 2022 10:00:00 -0500
+Content-Type: text/html; charset="utf-8"
+
+<html><body><h1>Receipt</h1><p>Thanks for your order. Total: <b>$19.99</b></p></body></html>
+
+From anonymous@example.com Wed Mar 02 11:00:00 2022
+Message-ID:
+From: Anonymous <anonymous@example.com>
+To: dan@example.com
+Subject: No id here
+Date: Wed, 2 Mar 2022 11:00:00 -0500
+Content-Type: text/plain; charset="utf-8"
+
+This message has no Message-ID header.
+
+From escaped@example.com Thu Apr 07 12:00:00 2022
+Message-ID: <escaped-004@example.com>
+From: Escaped <escaped@example.com>
+To: dan@example.com
+Subject: Escaped From line
+Date: Thu, 7 Apr 2022 12:00:00 -0500
+Content-Type: text/plain; charset="utf-8"
+
+>From the beginning of this line, it is escaped.
+Regular line.
+
+From broken@example.com Fri May 06 13:00:00 2022
+Message-ID: <broken-005@example.com>
+From: Broken <broken@example.com>
+To: dan@example.com
+Subject: Broken multipart
+Date: Fri, 6 May 2022 13:00:00 -0500
+Content-Type: multipart/mixed; boundary="b"
+
+--b
+Content-Type: text/plain
+
+this part never terminates
