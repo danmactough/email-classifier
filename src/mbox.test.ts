@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { describe, expect, it, vi } from "vitest";
-import { parseMbox } from "./mbox.ts";
+import type { MboxItem } from "./types.ts";
+import { parseMbox, splitMessages } from "./mbox.ts";
 
 // simpleParser is tolerant of malformed input, so the only way to exercise the
 // parse-failed path is to force the dependency to throw.
@@ -15,89 +16,76 @@ vi.mock("mailparser", async (importOriginal) => {
   };
 });
 
-const TWO_MESSAGES = [
-  "From alice@example.com Mon Jan 03 09:12:00 2022",
-  "Message-ID: <a@example.com>",
-  "From: Alice <alice@example.com>",
-  "Subject: Hello",
-  "Date: Mon, 3 Jan 2022 09:12:00 -0500",
-  'Content-Type: text/plain; charset="utf-8"',
-  "",
-  "First body.",
-  "",
-  "From bob@example.com Tue Feb 01 10:00:00 2022",
-  "Message-ID: <b@example.com>",
-  "From: Bob <bob@example.com>",
-  "Subject: Second",
-  "Date: Tue, 1 Feb 2022 10:00:00 -0500",
-  'Content-Type: text/plain; charset="utf-8"',
-  "",
-  "Second body.",
-].join("\n");
+async function* chunked(parts: string[]): AsyncGenerator<string> {
+  for (const part of parts) yield part;
+}
+
+async function collect<T>(iter: AsyncIterable<T>): Promise<T[]> {
+  const out: T[] = [];
+  for await (const item of iter) out.push(item);
+  return out;
+}
+
+function emailsOf(items: MboxItem[]) {
+  return items.map((item) => {
+    if (!item.ok) throw new Error(`unexpected drop: ${item.error.reason}`);
+    return item.email;
+  });
+}
+
+describe("splitMessages", () => {
+  it("yields one raw message per From separator, reassembling chunk splits", async () => {
+    const archive = "From a@x\nA1\nA2\n\nFrom b@x\nB1";
+
+    const messages = await collect(splitMessages(chunked([...archive])));
+
+    expect(messages).toEqual(["A1\nA2\n", "B1"]);
+  });
+});
 
 describe("parseMbox", () => {
-  it("returns one ParsedEmail per message with decoded headers and body", async () => {
-    const { emails, errors } = await parseMbox(TWO_MESSAGES);
-
-    expect(errors).toEqual([]);
-    expect(emails).toHaveLength(2);
-    expect(emails[0]).toMatchObject({
-      messageId: "<a@example.com>",
-      subject: "Hello",
-      body: "First body.\n",
-    });
-    expect(emails[0].from).toContain("alice@example.com");
-    expect(emails[0].date).toBe("Mon, 3 Jan 2022 09:12:00 -0500");
-    expect(emails[0].dateParsed?.toISOString()).toBe("2022-01-03T14:12:00.000Z");
-    expect(emails[1].messageId).toBe("<b@example.com>");
-  });
-
-  it("keeps HTML in htmlBody and still yields usable text in body", async () => {
-    const htmlOnly = [
-      "From shop@example.com Tue Feb 01 10:00:00 2022",
-      "Message-ID: <html@example.com>",
-      "From: Shop <shop@example.com>",
-      "Subject: Rich",
-      "Date: Tue, 1 Feb 2022 10:00:00 -0500",
-      'Content-Type: text/html; charset="utf-8"',
-      "",
-      "<html><body><p>Total: <b>$19.99</b></p></body></html>",
-    ].join("\n");
-
-    const { emails } = await parseMbox(htmlOnly);
-
-    expect(emails).toHaveLength(1);
-    expect(emails[0].htmlBody).toContain("<b>$19.99</b>");
-    expect(emails[0].body).toContain("$19.99");
-    expect(emails[0].body).not.toContain("<b>");
-  });
-  it("does not split on and unescapes a >From line", async () => {
-    const escaped = [
+  it("yields each parsed email in order, unescaping >From lines", async () => {
+    const archive = [
       "From alice@example.com Mon Jan 03 09:12:00 2022",
-      "Message-ID: <esc@example.com>",
+      "Message-ID: <a@example.com>",
       "From: Alice <alice@example.com>",
-      "Subject: Escaped",
+      "Subject: Hello",
       "Date: Mon, 3 Jan 2022 09:12:00 -0500",
       'Content-Type: text/plain; charset="utf-8"',
       "",
       ">From the beginning.",
-      "Regular line.",
+      "",
+      "From bob@example.com Tue Feb 01 10:00:00 2022",
+      "Message-ID: <b@example.com>",
+      "From: Bob <bob@example.com>",
+      "Subject: Second",
+      "Date: Tue, 1 Feb 2022 10:00:00 -0500",
+      'Content-Type: text/plain; charset="utf-8"',
+      "",
+      "Second body.",
     ].join("\n");
 
-    const { emails } = await parseMbox(escaped);
+    const items = await collect(parseMbox(chunked([archive])));
+    const emails = emailsOf(items);
 
-    expect(emails).toHaveLength(1);
+    expect(emails.map((email) => email.messageId)).toEqual([
+      "<a@example.com>",
+      "<b@example.com>",
+    ]);
+    expect(emails[0].subject).toBe("Hello");
+    expect(emails[0].date).toBe("Mon, 3 Jan 2022 09:12:00 -0500");
+    expect(emails[0].dateParsed?.toISOString()).toBe("2022-01-03T14:12:00.000Z");
     expect(emails[0].body).toContain("From the beginning.");
     expect(emails[0].body).not.toContain(">From");
   });
-  it("drops a message with no Message-ID and reports it", async () => {
-    const withMissing = [
+
+  it("yields a missing-message-id item and keeps iterating", async () => {
+    const archive = [
       "From alice@example.com Mon Jan 03 09:12:00 2022",
       "Message-ID: <keep@example.com>",
       "From: Alice <alice@example.com>",
       "Subject: Keep",
       "Date: Mon, 3 Jan 2022 09:12:00 -0500",
-      'Content-Type: text/plain; charset="utf-8"',
       "",
       "Kept body.",
       "",
@@ -105,19 +93,22 @@ describe("parseMbox", () => {
       "From: Nobody <nobody@example.com>",
       "Subject: No id",
       "Date: Tue, 1 Feb 2022 10:00:00 -0500",
-      'Content-Type: text/plain; charset="utf-8"',
       "",
       "Dropped body.",
     ].join("\n");
 
-    const { emails, errors } = await parseMbox(withMissing);
+    const items = await collect(parseMbox(chunked([archive])));
 
-    expect(emails.map((email) => email.messageId)).toEqual(["<keep@example.com>"]);
-    expect(errors).toHaveLength(1);
-    expect(errors[0].reason).toBe("missing-message-id");
-    expect(errors[0].snippet).toContain("Dropped body");
+    expect(items).toHaveLength(2);
+    expect(items[0]).toMatchObject({ ok: true, email: { messageId: "<keep@example.com>" } });
+    expect(items[1]).toMatchObject({
+      ok: false,
+      error: { reason: "missing-message-id" },
+    });
+    if (!items[1].ok) expect(items[1].error.snippet).toContain("Dropped body");
   });
-  it("records parse-failed and continues when a message fails to parse", async () => {
+
+  it("yields parse-failed and continues when a message fails to parse", async () => {
     const archive = [
       "From alice@example.com Mon Jan 03 09:12:00 2022",
       "Message-ID: <ok@example.com>",
@@ -136,20 +127,45 @@ describe("parseMbox", () => {
       "BOOM",
     ].join("\n");
 
-    const { emails, errors } = await parseMbox(archive);
+    const items = await collect(parseMbox(chunked([archive])));
 
-    expect(emails.map((email) => email.messageId)).toEqual(["<ok@example.com>"]);
-    expect(errors).toHaveLength(1);
-    expect(errors[0].reason).toBe("parse-failed");
-    expect(errors[0].detail).toBe("kaboom");
+    expect(items).toHaveLength(2);
+    expect(items[0]).toMatchObject({ ok: true, email: { messageId: "<ok@example.com>" } });
+    expect(items[1]).toMatchObject({
+      ok: false,
+      error: { reason: "parse-failed", detail: "kaboom" },
+    });
   });
+
+  it("keeps HTML in htmlBody and still yields usable text in body", async () => {
+    const htmlOnly = [
+      "From shop@example.com Tue Feb 01 10:00:00 2022",
+      "Message-ID: <html@example.com>",
+      "From: Shop <shop@example.com>",
+      "Subject: Rich",
+      "Date: Tue, 1 Feb 2022 10:00:00 -0500",
+      'Content-Type: text/html; charset="utf-8"',
+      "",
+      "<html><body><p>Total: <b>$19.99</b></p></body></html>",
+    ].join("\n");
+
+    const emails = emailsOf(await collect(parseMbox(chunked([htmlOnly]))));
+
+    expect(emails).toHaveLength(1);
+    expect(emails[0].htmlBody).toContain("<b>$19.99</b>");
+    expect(emails[0].body).toContain("$19.99");
+    expect(emails[0].body).not.toContain("<b>");
+  });
+
   it("parses the full fixture archive and reports the message with no Message-ID", async () => {
     const contents = await readFile(
       new URL("./__fixtures__/sample.mbox", import.meta.url),
       "utf8"
     );
 
-    const { emails, errors } = await parseMbox(contents);
+    const items = await collect(parseMbox(chunked([contents])));
+    const emails = items.filter((item) => item.ok).map((item) => item.email);
+    const errors = items.filter((item) => !item.ok).map((item) => item.error);
 
     expect(emails.map((email) => email.messageId)).toEqual([
       "<invoice-001@example.com>",
@@ -159,6 +175,6 @@ describe("parseMbox", () => {
     ]);
     expect(errors).toHaveLength(1);
     expect(errors[0].reason).toBe("missing-message-id");
-    expect(emails.length + errors.length).toBe(5);
+    expect(items).toHaveLength(5);
   });
 });

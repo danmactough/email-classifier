@@ -1,21 +1,19 @@
-import { readFile } from "node:fs/promises";
+import { createReadStream } from "node:fs";
 import { pathToFileURL } from "node:url";
 import { choice, TypeSafeClient } from "@typesafe-ai/sdk";
 import { classifyEmail } from "./classify.ts";
 import { parseMbox } from "./mbox.ts";
-import type { ClassifiedEmail, ParsedEmail, RunSummary } from "./types.ts";
+import type { ClassifiedEmail, ParsedEmail, ParseError, RunSummary } from "./types.ts";
 
 const FILTER = /invoice|receipt/i;
 
-/** Ad-hoc filtering. Criteria live here as plain if/else. */
-export function selectEmails(emails: ParsedEmail[]): ParsedEmail[] {
-  return emails.filter((email) => {
-    if (FILTER.test(email.from)) return true;
-    if (FILTER.test(email.date)) return true;
-    if (FILTER.test(email.subject)) return true;
-    if (FILTER.test(email.body)) return true;
-    return false;
-  });
+/** True when an email matches the FILTER regex on any of its fields. */
+export function shouldClassify(email: ParsedEmail): boolean {
+  if (FILTER.test(email.from)) return true;
+  if (FILTER.test(email.date)) return true;
+  if (FILTER.test(email.subject)) return true;
+  if (FILTER.test(email.body)) return true;
+  return false;
 }
 
 /** True only when JEV_LIVE is explicitly enabled. */
@@ -23,7 +21,7 @@ export function isLiveEnabled(env: NodeJS.ProcessEnv): boolean {
   return env.JEV_LIVE === "1";
 }
 
-/** Entrypoint: read mbox, parse, filter, classify, console.log the report. */
+/** Entrypoint: stream mbox, parse, filter, classify, console.log the report. */
 export async function main(): Promise<void> {
   const path = process.argv[2] ?? process.env.MBOX_PATH;
   if (!path) throw new Error("usage: tsx src/app.ts <mbox-path>");
@@ -34,30 +32,7 @@ export async function main(): Promise<void> {
     // no .env file present; rely on the ambient environment
   }
 
-  const contents = await readFile(path, "utf8");
-  const { emails, errors } = await parseMbox(contents);
-
-  const summary: RunSummary = {
-    total: emails.length + errors.length,
-    success: emails.length,
-    error: errors.length,
-  };
-  console.log("summary", JSON.stringify(summary));
-  for (const error of errors) {
-    console.log(`[${error.reason}] ${error.detail} :: ${error.snippet}`);
-  }
-
-  const selected = selectEmails(emails);
-  console.log(`matched ${selected.length} of ${emails.length}`);
-
-  if (!isLiveEnabled(process.env)) {
-    console.log(
-      "dry run: set JEV_LIVE=1 (in .env) to send matched emails to Jev"
-    );
-    return;
-  }
-
-  const client = new TypeSafeClient();
+  const client = isLiveEnabled(process.env) ? new TypeSafeClient() : null;
   const questions = {
     category: choice("What kind of email is this?", {
       personal: null,
@@ -66,13 +41,41 @@ export async function main(): Promise<void> {
     }),
   };
 
+  const summary: RunSummary = { total: 0, success: 0, error: 0 };
+  const errors: ParseError[] = [];
   const classified: ClassifiedEmail[] = [];
-  for (const email of selected) {
-    try {
-      classified.push(await classifyEmail({ client, email, questions }));
-    } catch (error) {
-      console.error("classification failed", email.messageId, error);
+  let matched = 0;
+
+  const source = createReadStream(path, { encoding: "utf8" });
+  for await (const item of parseMbox(source)) {
+    summary.total += 1;
+    if (!item.ok) {
+      summary.error += 1;
+      errors.push(item.error);
+      continue;
     }
+    summary.success += 1;
+    if (!shouldClassify(item.email)) continue;
+    matched += 1;
+    if (!client) continue;
+    try {
+      classified.push(await classifyEmail({ client, email: item.email, questions }));
+    } catch (error) {
+      console.error("classification failed", item.email.messageId, error);
+    }
+  }
+
+  console.log("summary", JSON.stringify(summary));
+  for (const error of errors) {
+    console.log(`[${error.reason}] ${error.detail} :: ${error.snippet}`);
+  }
+  console.log(`matched ${matched} of ${summary.success}`);
+
+  if (!client) {
+    console.log(
+      "dry run: set JEV_LIVE=1 (in .env) to send matched emails to Jev"
+    );
+    return;
   }
 
   for (const item of classified) {

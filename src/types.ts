@@ -29,6 +29,11 @@ export interface ParseError {
   snippet: string;
 }
 
+/** One item yielded by parseMbox: a parsed email, or a reason it was dropped. */
+export type MboxItem =
+  | { ok: true; email: ParsedEmail }
+  | { ok: false; error: ParseError };
+
 /** One email plus everything Jev returned for it. */
 export interface ClassifiedEmail {
   /** Set from `email.messageId`. */

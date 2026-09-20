@@ -1,5 +1,5 @@
 import { simpleParser, type ParsedMail } from "mailparser";
-import type { ParsedEmail, ParseError } from "./types.ts";
+import type { MboxItem, ParsedEmail, ParseError } from "./types.ts";
 
 const SNIPPET_LENGTH = 200;
 
@@ -7,20 +7,38 @@ function snippet(raw: string): string {
   return raw.replace(/\s+/g, " ").trim().slice(0, SNIPPET_LENGTH);
 }
 
-/** Split an mbox archive into raw messages on `From ` separator lines. */
-function splitMessages(contents: string): string[] {
-  const messages: string[] = [];
+/** Yield complete lines from a stream of arbitrary text chunks. */
+async function* lines(source: AsyncIterable<string>): AsyncGenerator<string> {
+  let buffer = "";
+  for await (const chunk of source) {
+    buffer += chunk;
+    let index: number;
+    while ((index = buffer.indexOf("\n")) !== -1) {
+      let line = buffer.slice(0, index);
+      buffer = buffer.slice(index + 1);
+      if (line.endsWith("\r")) line = line.slice(0, -1);
+      yield line;
+    }
+  }
+  let line = buffer;
+  if (line.endsWith("\r")) line = line.slice(0, -1);
+  yield line;
+}
+
+/** Split a stream of text chunks into raw messages, one per mbox `From ` separator. */
+export async function* splitMessages(
+  source: AsyncIterable<string>
+): AsyncGenerator<string> {
   let current: string[] = [];
-  for (const line of contents.split(/\r?\n/)) {
+  for await (const line of lines(source)) {
     if (/^From /.test(line)) {
-      if (current.length > 0) messages.push(current.join("\n"));
+      if (current.length > 0) yield current.join("\n");
       current = [];
       continue;
     }
     current.push(line);
   }
-  if (current.length > 0) messages.push(current.join("\n"));
-  return messages;
+  if (current.length > 0) yield current.join("\n");
 }
 
 /** Undo mboxrd `>From ` escaping so the parser sees the original text. */
@@ -41,48 +59,54 @@ function rawHeaderLine(parsed: ParsedMail, name: string): string {
 }
 
 /**
- * Split an mbox archive into individual messages and parse each one.
+ * Parse each message from the source and yield a ParsedEmail or ParseError.
  * Messages missing a Message-ID are skipped and reported.
  */
-export async function parseMbox(
-  contents: string
-): Promise<{ emails: ParsedEmail[]; errors: ParseError[] }> {
-  const emails: ParsedEmail[] = [];
-  const errors: ParseError[] = [];
+export async function* parseMbox(
+  source: AsyncIterable<string>
+): AsyncGenerator<MboxItem> {
+  for await (const raw of splitMessages(source)) {
+    const message = unescapeFromLines(raw);
 
-  for (const raw of splitMessages(contents).map(unescapeFromLines)) {
     let parsed: ParsedMail;
     try {
-      parsed = await simpleParser(raw);
+      parsed = await simpleParser(message);
     } catch (error) {
-      errors.push({
-        reason: "parse-failed",
-        detail: error instanceof Error ? error.message : String(error),
-        snippet: snippet(raw),
-      });
+      yield {
+        ok: false,
+        error: {
+          reason: "parse-failed",
+          detail: error instanceof Error ? error.message : String(error),
+          snippet: snippet(message),
+        },
+      };
       continue;
     }
 
     if (!parsed.messageId) {
-      errors.push({
-        reason: "missing-message-id",
-        detail: "message has no Message-ID header",
-        snippet: snippet(raw),
-      });
+      yield {
+        ok: false,
+        error: {
+          reason: "missing-message-id",
+          detail: "message has no Message-ID header",
+          snippet: snippet(message),
+        },
+      };
       continue;
     }
 
-    emails.push({
-      messageId: parsed.messageId,
-      from: parsed.from?.text ?? "",
-      date: rawHeaderLine(parsed, "date"),
-      dateParsed: parsed.date ?? null,
-      subject: parsed.subject ?? "",
-      body: parsed.text ?? "",
-      htmlBody: typeof parsed.html === "string" ? parsed.html : null,
-      raw,
-    });
+    yield {
+      ok: true,
+      email: {
+        messageId: parsed.messageId,
+        from: parsed.from?.text ?? "",
+        date: rawHeaderLine(parsed, "date"),
+        dateParsed: parsed.date ?? null,
+        subject: parsed.subject ?? "",
+        body: parsed.text ?? "",
+        htmlBody: typeof parsed.html === "string" ? parsed.html : null,
+        raw: message,
+      },
+    };
   }
-
-  return { emails, errors };
 }
