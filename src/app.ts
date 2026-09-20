@@ -108,11 +108,11 @@ export async function main(): Promise<void> {
 
   console.log("summary", JSON.stringify(summary));
   for (const error of errors) {
-    console.log(`[${error.reason}] ${error.detail} :: ${error.snippet}`);
+    console.error(`[${error.reason}] ${error.detail} :: ${error.snippet}`);
   }
-  console.log(`matched ${matched} of ${summary.success}`);
+  console.error(`matched ${matched} of ${summary.success}`);
   if (classificationErrors > 0) {
-    console.log("classification errors", classificationErrors);
+    console.error("classification errors", classificationErrors);
   }
 
   await writer.close({
@@ -123,10 +123,10 @@ export async function main(): Promise<void> {
     classified: classified.length,
     classificationErrors,
   });
-  console.log("report", writer.path);
+  console.error("report", writer.path);
 
   if (!client) {
-    console.log(
+    console.error(
       "dry run: set JEV_LIVE=1 (in .env) to send matched emails to Jev"
     );
     return;
