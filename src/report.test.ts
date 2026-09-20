@@ -3,8 +3,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  formatDuration,
   openReport,
   renderRow,
+  renderStats,
   renderSummary,
   reportPath,
   type ReportRow,
@@ -74,6 +76,7 @@ describe("renderRow", () => {
           body: "line1\nline2",
         }),
         result: null,
+        durationMs: null,
       },
       3
     );
@@ -95,6 +98,7 @@ describe("renderRow", () => {
           body: "b&c<d>",
         }),
         result: null,
+        durationMs: null,
       },
       0
     );
@@ -107,14 +111,41 @@ describe("renderRow", () => {
   });
 
   it("shows a placeholder for a dry run and the answers for a result", () => {
-    const dry = renderRow({ email: email({ body: "x" }), result: null }, 0);
+    const dry = renderRow(
+      { email: email({ body: "x" }), result: null, durationMs: null },
+      0
+    );
     expect(dry).toContain("dry run");
 
-    const live = renderRow({ email: email({ body: "x" }), result: RESULT }, 1);
+    const live = renderRow(
+      { email: email({ body: "x" }), result: RESULT, durationMs: null },
+      1
+    );
     expect(live).toContain("trial_expiration_notice");
     expect(live).toContain("0.97");
     expect(live).toContain("0.88");
     expect(live).not.toContain("dry run");
+  });
+
+  it("shows the classification duration and marks a failure", () => {
+    const live = renderRow(
+      { email: email({ body: "x" }), result: RESULT, durationMs: 456 },
+      7
+    );
+    expect(live).toContain("456 ms");
+
+    const failed = renderRow(
+      { email: email({ body: "x" }), result: null, durationMs: 210 },
+      8
+    );
+    expect(failed).toContain("failed");
+    expect(failed).toContain("210 ms");
+
+    const dry = renderRow(
+      { email: email({ body: "x" }), result: null, durationMs: null },
+      9
+    );
+    expect(dry).toContain("dry run");
   });
 
   it("renders an HTML body in a locked-down iframe, falling back to pre", () => {
@@ -122,6 +153,7 @@ describe("renderRow", () => {
       {
         email: email({ htmlBody: "<p>Hi <b>there</b></p>", body: "Hi there" }),
         result: null,
+        durationMs: null,
       },
       5
     );
@@ -134,7 +166,7 @@ describe("renderRow", () => {
     expect(withHtml).not.toContain("<p>Hi <b>there</b></p>");
 
     const noHtml = renderRow(
-      { email: email({ htmlBody: null, body: "plain text" }), result: null },
+      { email: email({ htmlBody: null, body: "plain text" }), result: null, durationMs: null },
       6
     );
     expect(noHtml).toContain("<pre>plain text</pre>");
@@ -144,12 +176,61 @@ describe("renderRow", () => {
 
 describe("renderSummary", () => {
   it("reports the four counts", () => {
-    const footer = renderSummary({ total: 5, success: 4, error: 1, matched: 2 });
+    const footer = renderSummary({
+      total: 5,
+      success: 4,
+      error: 1,
+      matched: 2,
+      elapsedMs: 0,
+      classificationMs: 0,
+      classified: 0,
+    });
 
     expect(footer).toContain("total 5");
     expect(footer).toContain("parsed 4");
     expect(footer).toContain("errors 1");
     expect(footer).toContain("matched 2");
+  });
+});
+
+describe("formatDuration", () => {
+  it("shows milliseconds under a second and seconds above", () => {
+    expect(formatDuration(456)).toBe("456 ms");
+    expect(formatDuration(12345)).toBe("12.3 s");
+  });
+});
+
+describe("renderStats", () => {
+  it("reports total time, average classification, and count", () => {
+    const stats = renderStats({
+      total: 10,
+      success: 10,
+      error: 0,
+      matched: 3,
+      elapsedMs: 12345,
+      classificationMs: 900,
+      classified: 3,
+    });
+
+    expect(stats).toContain("total time 12.3 s");
+    expect(stats).toContain("avg classification 300 ms");
+    expect(stats).toContain("classified 3");
+  });
+
+  it("handles zero classifications without dividing by zero", () => {
+    const stats = renderStats({
+      total: 1,
+      success: 1,
+      error: 0,
+      matched: 0,
+      elapsedMs: 500,
+      classificationMs: 0,
+      classified: 0,
+    });
+
+    expect(stats).toContain("total time 500 ms");
+    expect(stats).toContain("avg classification 0 ms");
+    expect(stats).not.toContain("classified 0");
   });
 });
 
@@ -165,8 +246,17 @@ describe("openReport", () => {
       await writer.addRow({
         email: email({ messageId: "<row@x>", body: "hello" }),
         result: null,
+        durationMs: null,
       });
-      await writer.close({ total: 1, success: 1, error: 0, matched: 1 });
+      await writer.close({
+        total: 1,
+        success: 1,
+        error: 0,
+        matched: 1,
+        elapsedMs: 1234,
+        classificationMs: 0,
+        classified: 0,
+      });
 
       expect(writer.path).toBe(reportPath({ startedAt, dir }));
       const html = await readFile(writer.path, "utf8");
@@ -177,6 +267,8 @@ describe("openReport", () => {
       expect(html).toContain("matched 1");
       expect(html).toContain('class="scroll"');
       expect(html).toContain("<colgroup>");
+      expect(html).toContain("run-stats");
+      expect(html).toContain("total time 1.2 s");
     } finally {
       await rm(dir, { recursive: true, force: true });
     }

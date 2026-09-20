@@ -57,6 +57,7 @@ export async function main(): Promise<void> {
   const errors: ParseError[] = [];
   const classified: ClassifiedEmail[] = [];
   let matched = 0;
+  let classificationMs = 0;
 
   const source = createReadStream(path, { encoding: "utf8" });
   for await (const item of parseMbox(source)) {
@@ -70,20 +71,25 @@ export async function main(): Promise<void> {
     if (!shouldClassify(item.email)) continue;
     matched += 1;
     let result: ClassifiedEmail["result"] | null = null;
+    let durationMs: number | null = null;
     if (client) {
+      const started = performance.now();
       try {
         const email = await classifyEmail({
           client,
           email: item.email,
           questions: buildQuestions({ email: item.email }),
         });
+        durationMs = performance.now() - started;
+        classificationMs += durationMs;
         classified.push(email);
         result = email.result;
       } catch (error) {
+        durationMs = performance.now() - started;
         console.error("classification failed", item.email.messageId, error);
       }
     }
-    await writer.addRow({ email: item.email, result });
+    await writer.addRow({ email: item.email, result, durationMs });
   }
 
   console.log("summary", JSON.stringify(summary));
@@ -92,7 +98,13 @@ export async function main(): Promise<void> {
   }
   console.log(`matched ${matched} of ${summary.success}`);
 
-  await writer.close({ ...summary, matched });
+  await writer.close({
+    ...summary,
+    matched,
+    elapsedMs: Date.now() - startedAt.getTime(),
+    classificationMs,
+    classified: classified.length,
+  });
   console.log("report", writer.path);
 
   if (!client) {

@@ -9,8 +9,10 @@ import type { ParsedEmail } from "./types.ts";
 /** One table row: an email and, on a live run, Jev's answers for it. */
 export interface ReportRow {
   email: ParsedEmail;
-  /** Jev's full result, or null on a dry run. */
+  /** Jev's full result, or null on a dry run or a failed classification. */
   result: SystemOneResult<EmailQuestions> | null;
+  /** Time spent classifying this email, or null when it was not classified. */
+  durationMs: number | null;
 }
 
 /** Run metadata rendered at the top of the page. */
@@ -29,6 +31,12 @@ export interface ReportSummary {
   success: number;
   error: number;
   matched: number;
+  /** Wall-clock ms from run start to report close. */
+  elapsedMs: number;
+  /** Total ms spent awaiting classification across all emails. */
+  classificationMs: number;
+  /** Number of emails actually sent to Jev. */
+  classified: number;
 }
 
 export interface ReportWriter {
@@ -73,6 +81,24 @@ function renderAnswers(result: SystemOneResult<EmailQuestions>): string {
   return parts.join("");
 }
 
+/** Human-readable duration: milliseconds under a second, seconds above. */
+export function formatDuration(ms: number): string {
+  if (ms < 1000) return `${Math.round(ms)} ms`;
+  return `${(ms / 1000).toFixed(1)} s`;
+}
+
+/** Run-level timing line for the metadata section. */
+export function renderStats(summary: ReportSummary): string {
+  const average =
+    summary.classified > 0 ? summary.classificationMs / summary.classified : 0;
+  const parts = [
+    `total time ${formatDuration(summary.elapsedMs)}`,
+    `avg classification ${formatDuration(average)}`,
+  ];
+  if (summary.classified > 0) parts.push(`classified ${summary.classified}`);
+  return parts.join(" · ");
+}
+
 // Render HTML bodies with scripts, remote resources, and navigation disabled:
 // the sandbox blocks everything, and the CSP blocks remote loads (tracking
 // pixels) while still allowing the inline styles mail clients emit.
@@ -96,9 +122,17 @@ function renderBody(email: ParsedEmail): string {
 export function renderRow(row: ReportRow, index: number): string {
   const id = `body-${index}`;
   const preview = row.email.body.replace(/\s+/g, " ").trim().slice(0, 120);
-  const answers = row.result
-    ? renderAnswers(row.result)
-    : '<span class="dry">dry run</span>';
+  let answers: string;
+  if (row.result) {
+    answers = renderAnswers(row.result);
+  } else if (row.durationMs != null) {
+    answers = '<span class="failed">failed</span>';
+  } else {
+    answers = '<span class="dry">dry run</span>';
+  }
+  if (row.durationMs != null) {
+    answers += `<div class="duration">${formatDuration(row.durationMs)}</div>`;
+  }
   const title = row.email.subject || row.email.messageId;
   return [
     "<tr>",
@@ -149,6 +183,8 @@ tbody tr:hover { background: #fafbfc; }
 .bar { display: inline-block; width: 72px; height: 6px; margin-left: 6px; vertical-align: middle; border-radius: 999px; background: #eef0f2; overflow: hidden; }
 .bar span { display: block; height: 100%; background: #2563eb; border-radius: 999px; }
 .dry { color: #9ca3af; font-style: italic; }
+.failed { color: #b91c1c; font-style: italic; }
+.duration { margin-top: 2px; color: #9ca3af; font-size: 11px; }
 button.view, button.close { cursor: pointer; font: inherit; font-size: 12px; padding: 2px 9px; border: 1px solid #d1d5db; border-radius: 6px; background: #fff; color: #374151; }
 button.view:hover, button.close:hover { background: #f3f4f6; }
 .modal { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; padding: 24px; background: rgba(17,24,39,.55); }
@@ -192,7 +228,7 @@ function renderHead(meta: ReportMeta): string {
 <h1>Jev report</h1>
 <span class="badge ${meta.live ? "live" : "dry"}">${meta.live ? "live" : "dry run"}</span>
 </header>
-<p class="meta">source ${escapeHtml(meta.source)} · started ${escapeHtml(meta.startedAt.toISOString())}</p>
+<p class="meta">source ${escapeHtml(meta.source)} · started ${escapeHtml(meta.startedAt.toISOString())} · <span id="run-stats">timing…</span></p>
 <div class="card">
 <div class="scroll">
 <table>
@@ -217,6 +253,7 @@ function renderTail(summary: ReportSummary): string {
 ${renderSummary(summary)}
 </div>
 <script>${SCRIPT}</script>
+<script>document.getElementById("run-stats").textContent = ${JSON.stringify(renderStats(summary))};</script>
 </body>
 </html>
 `;
