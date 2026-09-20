@@ -60,8 +60,9 @@ function renderAnswers(result: SystemOneResult<EmailQuestions>): string {
   for (const [key, answer] of Object.entries(result.answers)) {
     const label = `<span class="key">${escapeHtml(key)}</span>`;
     if (answer.type === "noul") {
+      const percent = Math.round(answer.noul * 100);
       parts.push(
-        `<div class="answer">${label}<span class="value">${answer.noul.toFixed(2)}</span></div>`
+        `<div class="answer">${label}<span class="value">${answer.noul.toFixed(2)}</span><span class="bar"><span style="width:${percent}%"></span></span></div>`
       );
     } else {
       parts.push(
@@ -72,6 +73,25 @@ function renderAnswers(result: SystemOneResult<EmailQuestions>): string {
   return parts.join("");
 }
 
+// Render HTML bodies with scripts, remote resources, and navigation disabled:
+// the sandbox blocks everything, and the CSP blocks remote loads (tracking
+// pixels) while still allowing the inline styles mail clients emit.
+const BODY_CSP =
+  "default-src 'none'; img-src data:; style-src 'unsafe-inline'";
+
+function renderBody(email: ParsedEmail): string {
+  if (email.htmlBody) {
+    const doc = [
+      "<!doctype html>",
+      '<meta charset="utf-8">',
+      `<meta http-equiv="Content-Security-Policy" content="${BODY_CSP}">`,
+      `<body>${email.htmlBody}</body>`,
+    ].join("");
+    return `<iframe class="html-body" sandbox="" srcdoc="${escapeHtml(doc)}"></iframe>`;
+  }
+  return `<pre>${escapeHtml(email.body)}</pre>`;
+}
+
 /** Render one `<tr>`; escapes all email-derived text. */
 export function renderRow(row: ReportRow, index: number): string {
   const id = `body-${index}`;
@@ -79,14 +99,15 @@ export function renderRow(row: ReportRow, index: number): string {
   const answers = row.result
     ? renderAnswers(row.result)
     : '<span class="dry">dry run</span>';
+  const title = row.email.subject || row.email.messageId;
   return [
     "<tr>",
     `<td class="mono">${escapeHtml(row.email.messageId)}</td>`,
     `<td>${escapeHtml(row.email.from)}</td>`,
     `<td>${escapeHtml(row.email.date)}</td>`,
-    `<td>${escapeHtml(row.email.subject)}</td>`,
-    `<td>${escapeHtml(preview)} <button class="view" data-modal="${id}">View</button>`,
-    `<div class="modal" id="${id}" hidden><div class="modal-box"><button class="close">Close</button><pre>${escapeHtml(row.email.body)}</pre></div></div>`,
+    `<td class="subject">${escapeHtml(row.email.subject)}</td>`,
+    `<td class="body-cell"><span class="preview">${escapeHtml(preview)}</span> <button class="view" data-modal="${id}">View</button>`,
+    `<div class="modal" id="${id}" hidden><div class="modal-box"><div class="modal-head"><span class="title">${escapeHtml(title)}</span><button class="close">Close</button></div><div class="modal-body">${renderBody(row.email)}</div></div></div>`,
     "</td>",
     `<td class="answers">${answers}</td>`,
     "</tr>",
@@ -95,25 +116,48 @@ export function renderRow(row: ReportRow, index: number): string {
 
 /** Render the summary footer. */
 export function renderSummary(summary: ReportSummary): string {
-  return `<footer>total ${summary.total} · parsed ${summary.success} · errors ${summary.error} · matched ${summary.matched}</footer>`;
+  return `<footer class="summary">total ${summary.total} · parsed ${summary.success} · errors ${summary.error} · matched ${summary.matched}</footer>`;
 }
 
 const STYLE = `
-body { font: 14px system-ui, sans-serif; margin: 1.5rem; color: #1a1a1a; }
+* { box-sizing: border-box; }
+body { margin: 0; background: #f6f7f9; color: #1f2328; font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; }
+.wrap { max-width: 1400px; margin: 0 auto; padding: 28px 20px 40px; }
+.page { display: flex; align-items: center; gap: 10px; }
+h1 { font-size: 20px; margin: 0; }
+.badge { padding: 2px 9px; border-radius: 999px; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; }
+.badge.live { background: #dcfce7; color: #166534; }
+.badge.dry { background: #e5e7eb; color: #4b5563; }
+.meta { color: #6b7280; font-size: 13px; margin: 6px 0 18px; }
+.card { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 2px rgba(0,0,0,.05); }
 table { border-collapse: collapse; width: 100%; }
-th, td { border: 1px solid #d0d0d0; padding: 6px 8px; text-align: left; vertical-align: top; }
-th { background: #f2f2f2; }
-.mono { font-family: ui-monospace, monospace; font-size: 12px; }
-.answers .answer { display: flex; gap: 6px; }
-.answers .key { color: #555; min-width: 12rem; }
-.answers .value { font-weight: 600; }
-.answers .conf { color: #999; }
-.dry { color: #999; font-style: italic; }
-.modal { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: flex; align-items: center; justify-content: center; }
+thead th { position: sticky; top: 0; z-index: 1; background: #fafbfc; padding: 10px 12px; text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: #6b7280; border-bottom: 1px solid #e5e7eb; }
+tbody td { padding: 10px 12px; border-bottom: 1px solid #f1f2f4; vertical-align: top; }
+tbody tr:last-child td { border-bottom: 0; }
+tbody tr:hover { background: #fafbfc; }
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; color: #374151; white-space: nowrap; }
+.subject { font-weight: 600; }
+.preview { color: #4b5563; }
+.body-cell { max-width: 26rem; }
+.answers { display: grid; gap: 5px; }
+.answer { display: grid; grid-template-columns: 10.5rem auto 1fr; gap: 8px; align-items: center; }
+.answer .key { color: #6b7280; font-size: 12px; }
+.answer .value { font-weight: 600; }
+.answer .conf { color: #9ca3af; font-size: 12px; }
+.bar { display: block; height: 6px; border-radius: 999px; background: #eef0f2; overflow: hidden; }
+.bar span { display: block; height: 100%; background: #2563eb; border-radius: 999px; }
+.dry { color: #9ca3af; font-style: italic; }
+button.view, button.close { cursor: pointer; font: inherit; font-size: 12px; padding: 2px 9px; border: 1px solid #d1d5db; border-radius: 6px; background: #fff; color: #374151; }
+button.view:hover, button.close:hover { background: #f3f4f6; }
+.modal { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; padding: 24px; background: rgba(17,24,39,.55); }
 .modal[hidden] { display: none; }
-.modal-box { background: #fff; max-width: 60rem; max-height: 80vh; overflow: auto; padding: 1rem; border-radius: 6px; }
-.modal-box pre { white-space: pre-wrap; word-break: break-word; }
-footer { margin-top: 1rem; color: #555; }
+.modal-box { display: flex; flex-direction: column; width: min(1000px, 100%); max-height: 85vh; background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 20px 45px rgba(0,0,0,.3); }
+.modal-head { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid #e5e7eb; }
+.modal-head .title { flex: 1; min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.modal-body { padding: 16px; overflow: auto; }
+iframe.html-body { width: 100%; height: 60vh; border: 1px solid #e5e7eb; border-radius: 8px; background: #fff; }
+pre { margin: 0; white-space: pre-wrap; word-break: break-word; font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; }
+.summary { margin: 14px 2px 0; color: #6b7280; font-size: 13px; }
 `;
 
 const SCRIPT = `
@@ -141,8 +185,13 @@ function renderHead(meta: ReportMeta): string {
 <style>${STYLE}</style>
 </head>
 <body>
+<div class="wrap">
+<header class="page">
 <h1>Jev report</h1>
-<p class="meta">source: ${escapeHtml(meta.source)} · ${meta.live ? "live" : "dry run"} · started ${escapeHtml(meta.startedAt.toISOString())}</p>
+<span class="badge ${meta.live ? "live" : "dry"}">${meta.live ? "live" : "dry run"}</span>
+</header>
+<p class="meta">source ${escapeHtml(meta.source)} · started ${escapeHtml(meta.startedAt.toISOString())}</p>
+<div class="card">
 <table>
 <thead><tr><th>Message-ID</th><th>From</th><th>Date</th><th>Subject</th><th>Body</th><th>Jev responses</th></tr></thead>
 <tbody>
@@ -152,7 +201,9 @@ function renderHead(meta: ReportMeta): string {
 function renderTail(summary: ReportSummary): string {
   return `</tbody>
 </table>
+</div>
 ${renderSummary(summary)}
+</div>
 <script>${SCRIPT}</script>
 </body>
 </html>

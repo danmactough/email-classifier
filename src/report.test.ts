@@ -116,6 +116,30 @@ describe("renderRow", () => {
     expect(live).toContain("0.88");
     expect(live).not.toContain("dry run");
   });
+
+  it("renders an HTML body in a locked-down iframe, falling back to pre", () => {
+    const withHtml = renderRow(
+      {
+        email: email({ htmlBody: "<p>Hi <b>there</b></p>", body: "Hi there" }),
+        result: null,
+      },
+      5
+    );
+
+    expect(withHtml).toContain('class="html-body"');
+    expect(withHtml).toContain('sandbox=""');
+    expect(withHtml).toContain('srcdoc="');
+    expect(withHtml).toContain("Content-Security-Policy");
+    expect(withHtml).toContain("&lt;p&gt;Hi &lt;b&gt;there&lt;/b&gt;&lt;/p&gt;");
+    expect(withHtml).not.toContain("<p>Hi <b>there</b></p>");
+
+    const noHtml = renderRow(
+      { email: email({ htmlBody: null, body: "plain text" }), result: null },
+      6
+    );
+    expect(noHtml).toContain("<pre>plain text</pre>");
+    expect(noHtml).not.toContain("<iframe");
+  });
 });
 
 describe("renderSummary", () => {
