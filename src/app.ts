@@ -7,15 +7,34 @@ import { buildQuestions } from "./questions.ts";
 import { openReport } from "./report.ts";
 import type { ClassifiedEmail, ParsedEmail, ParseError, RunSummary } from "./types.ts";
 
-const FILTER = /invoice|receipt/i;
+
+try {
+  process.loadEnvFile();
+} catch {
+  // no .env file present; rely on the ambient environment
+}
+
+const FROM_FILTER = new RegExp(process.env.FROM_FILTER ?? ".*", 'i');
+const DATE_FILTER = new RegExp(process.env.DATE_FILTER ?? ".*", 'i');
+const SUBJECT_FILTER = new RegExp(process.env.SUBJECT_FILTER ?? ".*", 'i');
+const BODY_FILTER = new RegExp(process.env.BODY_FILTER ?? ".*", 'is');
+const DATE_SINCE = new Date(process.env.DATE_SINCE ?? "1970-01-01T00:00:00Z");
 
 /** True when an email matches the FILTER regex on any of its fields. */
 export function shouldClassify(email: ParsedEmail): boolean {
-  if (FILTER.test(email.from)) return true;
-  if (FILTER.test(email.date)) return true;
-  if (FILTER.test(email.subject)) return true;
-  if (FILTER.test(email.body)) return true;
-  return false;
+  const dateOk = email.dateParsed != null && email.dateParsed >= DATE_SINCE && DATE_FILTER.test(email.date);
+  const fromOk = FROM_FILTER.test(email.from);
+  const subjectOk = SUBJECT_FILTER.test(email.subject);
+  const bodyOk = BODY_FILTER.test(email.body);
+  if (process.env.LOG_SKIPPED) {
+    const failMsgs: string[] = [];
+    if (!dateOk) failMsgs.push(`date ${email.date} < ${DATE_SINCE.toISOString()}`);
+    if (!fromOk) failMsgs.push(`from ${email.from} !~ ${FROM_FILTER}`);
+    if (!subjectOk) failMsgs.push(`subject ${email.subject} !~ ${SUBJECT_FILTER}`);
+    if (!bodyOk) failMsgs.push(`body !~ ${BODY_FILTER}`);
+    if (failMsgs.length > 0) console.error("skipping", email.messageId, email.from, email.subject, failMsgs.join("; "));
+  }
+  return dateOk && fromOk && subjectOk && bodyOk;
 }
 
 /** True only when JEV_LIVE is explicitly enabled. */
@@ -27,12 +46,6 @@ export function isLiveEnabled(env: NodeJS.ProcessEnv): boolean {
 export async function main(): Promise<void> {
   const path = process.argv[2] ?? process.env.MBOX_PATH;
   if (!path) throw new Error("usage: tsx src/app.ts <mbox-path>");
-
-  try {
-    process.loadEnvFile();
-  } catch {
-    // no .env file present; rely on the ambient environment
-  }
 
   const client = isLiveEnabled(process.env) ? new TypeSafeClient() : null;
   const startedAt = new Date();
