@@ -1,0 +1,15 @@
+{
+  "name": "jev-test",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "Dan MacTough <danmactough@gmail.com> (http://mact.me/)",
+  "license": "MIT",
+  "dependencies": {
+    "@typesafe-ai/sdk": "^0.6.0"
+  }
+}
