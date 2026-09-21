@@ -21,9 +21,9 @@ const RESULT = {
     related_to_services: { type: "noul", noul: 0.95 },
     category: {
       type: "choice",
-      choice: "trial_expiration_notice",
+      choice: "trial_ending",
       confidence: 0.88,
-      probabilities: { trial_expiration_notice: 0.88 },
+      probabilities: { trial_ending: 0.88 },
     },
     sender_name: {
       type: "choice",
@@ -137,7 +137,7 @@ describe("renderRow", () => {
       },
       1
     );
-    expect(live).toContain("trial_expiration_notice");
+    expect(live).toContain("trial_ending");
     expect(live).toContain("0.97");
     expect(live).toContain("0.88");
     expect(live).not.toContain("dry run");

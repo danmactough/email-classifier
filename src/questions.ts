@@ -8,8 +8,9 @@ import type { ParsedEmail, SenderCandidates } from "./types.ts";
 
 export const CATEGORIES = [
   "promotion_spam",
-  "new_trial_notification",
-  "trial_expiration_notice",
+  "trial_started",
+  "trial_ending",
+  "trial_converted",
   "subscription_confirmation",
   "subscription_renewal",
   "subscription_cancellation",
@@ -25,14 +26,14 @@ export type Category = (typeof CATEGORIES)[number];
 const CATEGORY_DESCRIPTIONS: Record<Category, string> = {
   promotion_spam:
     "Marketing, advertising, newsletters, or unsolicited bulk mail. No transaction and no subscription the recipient holds.",
-  new_trial_notification:
-    "Confirms a free trial has just started or been activated.",
-  trial_expiration_notice:
-    "Warns that a free trial is ending soon or has ended and will convert to paid.",
+  trial_started: "Confirms a free trial has just started or been activated.",
+  trial_ending: "Warns that a free trial is ending soon or has ended.",
+  trial_converted:
+    "Confirms a free trial has become a paid subscription, or that a charge was made when the trial ended.",
   subscription_confirmation:
-    "Confirms a paid subscription was created or its plan changed. Not the start of a trial.",
+    "Confirms a paid subscription was created or its plan changed. Not the start of a free trial.",
   subscription_renewal:
-    "Says an existing paid subscription was renewed or a recurring charge was made.",
+    "Says an existing paid subscription was renewed or a recurring charge was made. Not the transition from a free trial to paid.",
   subscription_cancellation:
     "Confirms a subscription or membership was cancelled or will not renew.",
   order_receipt:
@@ -44,11 +45,13 @@ const CATEGORY_DESCRIPTIONS: Record<Category, string> = {
   other: "Anything that fits none of the above.",
 };
 
-/** The six questions asked about one email; answer keys are inferred from this map. */
+/** The eight questions asked about one email; answer keys are inferred from this map. */
 export type EmailQuestionMap = {
   related_to_subscription: NoulQuestion;
   related_to_physical_goods: NoulQuestion;
   related_to_services: NoulQuestion;
+  involves_free_trial: NoulQuestion;
+  free_trial_auto_converts: NoulQuestion;
   category: ChoiceQuestion<Record<Category, string>>;
   sender_name: ChoiceQuestion;
   sender_email: ChoiceQuestion;
@@ -127,6 +130,20 @@ export function buildQuestions(options: {
     ),
     related_to_services: noul(
       "Does this email relate to purchasing service(s): work, access, or expertise rather than a physical item?"
+    ),
+    involves_free_trial: noul(
+      "Does this email concern a free trial — a period during which a product, service, or subscription is provided at no cost to evaluate it?",
+      {
+        true: "Mentions a free trial, trial period, trial membership, or trial subscription: its start, an ending reminder, a conversion to paid, or its cancellation.",
+        false: "No free trial is mentioned. The word 'trial' appears only in another sense (a trial run, a legal trial, a product name), or the email concerns a paid subscription or order with no free trial.",
+      }
+    ),
+    free_trial_auto_converts: noul(
+      "Does this email indicate that a free trial automatically converts into a paid subscription and charges the recipient unless they cancel before it ends?",
+      {
+        true: "Says the trial becomes a paid subscription at the end, that the recipient must cancel to avoid a charge, or that a charge or renewal follows the trial.",
+        false: "The trial ends with no charge, no payment method is required, the trial is already on a paid plan, or the email does not connect the trial to a paid subscription.",
+      }
     ),
     category: choice(
       "What kind of email is this, based on the transaction or subscription event it describes?",

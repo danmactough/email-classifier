@@ -16,9 +16,9 @@ const FAKE_RESULT = {
     related_to_services: { type: "noul", noul: 0.95 },
     category: {
       type: "choice",
-      choice: "trial_expiration_notice",
+      choice: "trial_ending",
       confidence: 0.9,
-      probabilities: { trial_expiration_notice: 0.9, other: 0.1 },
+      probabilities: { trial_ending: 0.9, other: 0.1 },
     },
     sender_name: {
       type: "choice",
@@ -90,6 +90,8 @@ describe("classifyEmail", () => {
     expect(result.result).toEqual(FAKE_RESULT);
     expect(Object.keys(calls[0].body.questions as object).sort()).toEqual([
       "category",
+      "free_trial_auto_converts",
+      "involves_free_trial",
       "related_to_physical_goods",
       "related_to_services",
       "related_to_subscription",
@@ -109,7 +111,7 @@ describe("classifyEmail", () => {
         "Subject: Invoice for March",
       ].join("\n")
     );
-    expect(result.result.answers.category.choice).toBe("trial_expiration_notice");
+    expect(result.result.answers.category.choice).toBe("trial_ending");
   });
 
   it("does not mutate the email", async () => {

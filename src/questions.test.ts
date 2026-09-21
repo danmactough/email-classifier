@@ -17,7 +17,7 @@ function email(overrides: Partial<ParsedEmail>): ParsedEmail {
 }
 
 describe("buildQuestions", () => {
-  it("returns the six questions with candidates as the sender options", () => {
+  it("returns the eight questions with candidates as the sender options", () => {
     const questions = buildQuestions({
       email: email({
         from: "Shop Support <no-reply@mailer.shop.example.com>",
@@ -33,6 +33,8 @@ describe("buildQuestions", () => {
 
     expect(Object.keys(questions).sort()).toEqual([
       "category",
+      "free_trial_auto_converts",
+      "involves_free_trial",
       "related_to_physical_goods",
       "related_to_services",
       "related_to_subscription",
@@ -42,7 +44,14 @@ describe("buildQuestions", () => {
     expect(questions.related_to_subscription.type).toBe("noul");
     expect(questions.related_to_physical_goods.type).toBe("noul");
     expect(questions.related_to_services.type).toBe("noul");
+    expect(questions.involves_free_trial.type).toBe("noul");
+    expect(questions.involves_free_trial.criteria?.true).toBeTruthy();
+    expect(questions.free_trial_auto_converts.type).toBe("noul");
+    expect(questions.free_trial_auto_converts.criteria?.false).toBeTruthy();
     expect(Object.keys(questions.category.criteria)).toEqual([...CATEGORIES]);
+    expect(Object.keys(questions.category.criteria)).toEqual(
+      expect.arrayContaining(["trial_started", "trial_ending", "trial_converted"])
+    );
     expect(Object.keys(questions.sender_name.criteria)).toContain("none");
     expect(Object.keys(questions.sender_name.criteria)).toContain("Shop Support");
     expect(Object.keys(questions.sender_name.criteria)).toContain("Acme Cloud Team");
