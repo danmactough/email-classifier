@@ -60,7 +60,8 @@ const NONE = "none";
 const MAX_CANDIDATES = 100;
 const SIGNATURE_LINES = 15;
 const EMAIL_RE = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g;
-const NAME_RE = /\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2}\b/g;
+// Separator is spaces/tabs, not \s, so a name cannot merge across signature lines.
+const NAME_RE = /\b[A-Z][a-z]+(?:[ \t]+[A-Z][a-z]+){0,2}\b/g;
 
 /** Keep first-seen order, drop blanks, duplicates, and the `none` label. */
 function dedupe(values: Iterable<string>, limit: number): string[] {

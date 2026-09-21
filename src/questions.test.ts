@@ -98,6 +98,19 @@ describe("findSenderCandidates", () => {
     expect(new Set(candidates.emails).size).toBe(candidates.emails.length);
   });
 
+  it("keeps a name from spanning into the next signature line", () => {
+    const message = email({
+      from: "Support <support@acme.example>",
+      body: "Thanks,\nMick Jones\nHead of Support\nAcme Inc\n",
+    });
+
+    const { names } = findSenderCandidates(message);
+
+    expect(names).toContain("Mick Jones");
+    expect(names.every((name) => !name.includes("\n"))).toBe(true);
+    expect(names).not.toContain("Mick Jones\nHead");
+  });
+
   it("caps each list and never emits the none label", () => {
     const addresses = Array.from(
       { length: 150 },
