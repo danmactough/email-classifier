@@ -109,15 +109,15 @@ export function renderStats(summary: ReportSummary): string {
 }
 
 // Render HTML bodies with scripts, remote resources, and navigation disabled:
-// the sandbox blocks everything, and the CSP allows images and inline styles
-// while blocking remote loads beyond images (tracking scripts, fonts).
+// the sandbox blocks everything, and the CSP allows images (data, https, http)
+// and inline styles while blocking remote loads beyond images.
 const BODY_CSP =
-  "default-src 'none'; img-src data: https:; style-src 'unsafe-inline'";
+  "default-src 'none'; img-src data: https: http:; style-src 'unsafe-inline'";
 
 // The parent page allows the sandboxed body iframes and the images and inline
 // styles they need, which a srcdoc frame also inherits from this document.
 const PARENT_CSP =
-  "default-src 'none'; base-uri 'none'; img-src data: https:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; frame-src 'self' data:";
+  "default-src 'none'; base-uri 'none'; img-src data: https: http:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; frame-src 'self' data:";
 
 function renderBody(email: ParsedEmail): string {
   if (email.htmlBody) {
