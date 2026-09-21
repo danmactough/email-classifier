@@ -214,6 +214,8 @@ describe("renderRow", () => {
     expect(withHtml).toContain('sandbox=""');
     expect(withHtml).toContain('srcdoc="');
     expect(withHtml).toContain("Content-Security-Policy");
+    expect(withHtml).toContain("img-src data: https:");
+    expect(withHtml).toContain("style-src");
     expect(withHtml).toContain("&lt;p&gt;Hi &lt;b&gt;there&lt;/b&gt;&lt;/p&gt;");
     expect(withHtml).not.toContain("<p>Hi <b>there</b></p>");
 
@@ -335,6 +337,9 @@ describe("openReport", () => {
       expect(html).toContain("<colgroup>");
       expect(html).toContain("run-stats");
       expect(html).toContain("total time 1.2 s");
+      expect(html).toContain('http-equiv="Content-Security-Policy"');
+      expect(html).toContain("img-src data: https:");
+      expect(html).toContain("frame-src");
     } finally {
       await rm(dir, { recursive: true, force: true });
     }

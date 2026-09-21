@@ -109,10 +109,15 @@ export function renderStats(summary: ReportSummary): string {
 }
 
 // Render HTML bodies with scripts, remote resources, and navigation disabled:
-// the sandbox blocks everything, and the CSP blocks remote loads (tracking
-// pixels) while still allowing the inline styles mail clients emit.
+// the sandbox blocks everything, and the CSP allows images and inline styles
+// while blocking remote loads beyond images (tracking scripts, fonts).
 const BODY_CSP =
-  "default-src 'none'; img-src data:; style-src 'unsafe-inline'";
+  "default-src 'none'; img-src data: https:; style-src 'unsafe-inline'";
+
+// The parent page allows the sandboxed body iframes and the images and inline
+// styles they need, which a srcdoc frame also inherits from this document.
+const PARENT_CSP =
+  "default-src 'none'; base-uri 'none'; img-src data: https:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; frame-src 'self' data:";
 
 function renderBody(email: ParsedEmail): string {
   if (email.htmlBody) {
@@ -236,6 +241,7 @@ function renderHead(meta: ReportMeta): string {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="${PARENT_CSP}">
 <title>Jev report — ${escapeHtml(meta.source)}</title>
 <style>${STYLE}</style>
 </head>
