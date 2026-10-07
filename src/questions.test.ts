@@ -6,7 +6,7 @@ function email(overrides: Partial<ParsedEmail>): ParsedEmail {
   return {
     messageId: "<x@example.com>",
     from: "",
-    from_parsed: { name: "" },
+    fromParsed: { name: "" },
     date: "",
     dateParsed: null,
     subject: "",
@@ -22,7 +22,7 @@ describe("buildQuestions", () => {
     const questions = buildQuestions({
       email: email({
         from: "Shop Support <no-reply@mailer.shop.example.com>",
-        from_parsed: { name: "Shop Support" },
+        fromParsed: { name: "Shop Support" },
         body: "Hi Dan,\nThanks,\nAcme Cloud Team\n",
         raw: [
           "From: Shop Support <no-reply@mailer.shop.example.com>",

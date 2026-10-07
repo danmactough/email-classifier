@@ -8,7 +8,7 @@ export interface ParsedEmail {
   /** Raw From: header value. */
   from: string;
   /** From header after parsing: the display name, or "" when absent. */
-  from_parsed: { name: string };
+  fromParsed: { name: string };
   /** Raw Date: header value. */
   date: string;
   /** Parsed Date, or null if the header is missing/unparseable. */

@@ -73,7 +73,7 @@ describe("parseMbox", () => {
       "<b@example.com>",
     ]);
     expect(emails[0].subject).toBe("Hello");
-    expect(emails[0].from_parsed.name).toBe("Alice");
+    expect(emails[0].fromParsed.name).toBe("Alice");
     expect(emails[0].date).toBe("Mon, 3 Jan 2022 09:12:00 -0500");
     expect(emails[0].dateParsed?.toISOString()).toBe("2022-01-03T14:12:00.000Z");
     expect(emails[0].body).toContain("From the beginning.");

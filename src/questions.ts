@@ -86,7 +86,7 @@ export function buildQuestions(options: {
   // sender name out of the MAX_CANDIDATES cap; the whole body still contributes.
   const candidateNames = dedupe(
     [
-      options.email.from_parsed.name,
+      options.email.fromParsed.name,
       ...getListOfProperNouns(signatureRegion(options.email.body)),
       ...getListOfProperNouns(options.email.body),
     ],

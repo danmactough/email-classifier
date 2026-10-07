@@ -101,7 +101,7 @@ export async function* parseMbox(
       email: {
         messageId: parsed.messageId,
         from: parsed.from?.text ?? "",
-        from_parsed: { name: displayName(parsed.from?.text ?? "") },
+        fromParsed: { name: displayName(parsed.from?.text ?? "") },
         date: rawHeaderLine(parsed, "date"),
         dateParsed: parsed.date ?? null,
         subject: parsed.subject ?? "",
