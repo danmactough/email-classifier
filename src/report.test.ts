@@ -45,6 +45,7 @@ function email(overrides: Partial<ParsedEmail>): ParsedEmail {
   return {
     messageId: "<x@example.com>",
     from: "",
+    from_parsed: { name: "" },
     date: "",
     dateParsed: null,
     subject: "",

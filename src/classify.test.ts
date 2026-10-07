@@ -39,6 +39,7 @@ const FAKE_RESULT = {
 const EMAIL: ParsedEmail = {
   messageId: "<invoice-001@example.com>",
   from: "Billing <billing@example.com>",
+  from_parsed: { name: "Billing" },
   date: "Mon, 3 Jan 2022 09:12:00 -0500",
   dateParsed: new Date("2022-01-03T14:12:00.000Z"),
   subject: "Invoice for March",

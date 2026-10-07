@@ -1,4 +1,5 @@
 import { simpleParser, type ParsedMail } from "mailparser";
+import { displayName } from "./helpers.ts";
 import type { MboxItem, ParsedEmail, ParseError } from "./types.ts";
 
 const SNIPPET_LENGTH = 200;
@@ -100,6 +101,7 @@ export async function* parseMbox(
       email: {
         messageId: parsed.messageId,
         from: parsed.from?.text ?? "",
+        from_parsed: { name: displayName(parsed.from?.text ?? "") },
         date: rawHeaderLine(parsed, "date"),
         dateParsed: parsed.date ?? null,
         subject: parsed.subject ?? "",

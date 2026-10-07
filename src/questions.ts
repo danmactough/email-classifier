@@ -4,7 +4,14 @@ import {
   type ChoiceQuestion,
   type NoulQuestion,
 } from "@typesafe-ai/sdk";
-import type { ParsedEmail, SenderCandidates } from "./types.ts";
+import {
+  MAX_CANDIDATES,
+  NONE,
+  dedupe,
+  getListOfEmailAddresses,
+  getListOfProperNouns,
+} from "./helpers.ts";
+import type { ParsedEmail } from "./types.ts";
 
 export const CATEGORIES = [
   "promotion_spam",
@@ -59,52 +66,6 @@ export type EmailQuestionMap = {
 
 export type EmailQuestions = EmailQuestionMap;
 
-const NONE = "none";
-const MAX_CANDIDATES = 100;
-const SIGNATURE_LINES = 15;
-const EMAIL_RE = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g;
-// Separator is spaces/tabs, not \s, so a name cannot merge across signature lines.
-const NAME_RE = /\b[A-Z][a-z]+(?:[ \t]+[A-Z][a-z]+){0,2}\b/g;
-
-/** Keep first-seen order, drop blanks, duplicates, and the `none` label. */
-function dedupe(values: Iterable<string>, limit: number): string[] {
-  const seen = new Set<string>();
-  const out: string[] = [];
-  for (const value of values) {
-    const item = value.trim();
-    if (!item || item === NONE || seen.has(item)) continue;
-    seen.add(item);
-    out.push(item);
-    if (out.length >= limit) break;
-  }
-  return out;
-}
-
-/** The display name from the From header, or "" when it is just an address. */
-function displayName(from: string): string {
-  const name = from.split("<")[0].replace(/["']/g, "").trim();
-  return name.includes("@") ? "" : name;
-}
-
-/** The last few non-empty lines, where a signature and its sender name live. */
-function signatureRegion(body: string): string {
-  const lines = body
-    .split("\n")
-    .map((line) => line.trimEnd())
-    .filter((line) => line.trim() !== "");
-  return lines.slice(-SIGNATURE_LINES).join("\n");
-}
-
-/** Find over-broad candidate names and email addresses in the message. */
-export function findSenderCandidates(email: ParsedEmail): SenderCandidates {
-  const names = signatureRegion(email.body).match(NAME_RE) ?? [];
-  const emails = email.raw.match(EMAIL_RE) ?? [];
-  return {
-    names: dedupe([displayName(email.from), ...names], MAX_CANDIDATES),
-    emails: dedupe(emails, MAX_CANDIDATES),
-  };
-}
-
 function optionMap(
   values: string[],
   none: string
@@ -119,7 +80,14 @@ function optionMap(
 export function buildQuestions(options: {
   email: ParsedEmail;
 }): EmailQuestions {
-  const candidates = findSenderCandidates(options.email);
+  const candidateEmails = getListOfEmailAddresses(options.email.raw);
+  const candidateNames = dedupe(
+    [
+      options.email.from_parsed.name,
+      ...getListOfProperNouns(options.email.body),
+    ],
+    MAX_CANDIDATES
+  );
 
   return {
     related_to_subscription: noul(
@@ -151,11 +119,11 @@ export function buildQuestions(options: {
     ),
     sender_name: choice(
       "What is the sender's name: the brand or person evident in the message signature?",
-      optionMap(candidates.names, "No candidate is the sender's name.")
+      optionMap(candidateNames, "No candidate is the sender's name.")
     ),
     sender_email: choice(
       "What is the sender's email address?",
-      optionMap(candidates.emails, "No candidate is the sender's email address.")
+      optionMap(candidateEmails, "No candidate is the sender's email address.")
     ),
   };
 }

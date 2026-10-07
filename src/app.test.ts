@@ -14,6 +14,7 @@ function email(overrides: Partial<ParsedEmail>): ParsedEmail {
   return {
     messageId: "<x@example.com>",
     from: "sender@example.com",
+    from_parsed: { name: "sender" },
     date: "Mon, 3 Jan 2022 09:12:00 -0500",
     dateParsed: new Date("2022-01-03T14:12:00.000Z"),
     subject: "Subject",

@@ -7,6 +7,8 @@ export interface ParsedEmail {
   messageId: string;
   /** Raw From: header value. */
   from: string;
+  /** From header after parsing: the display name, or "" when absent. */
+  from_parsed: { name: string };
   /** Raw Date: header value. */
   date: string;
   /** Parsed Date, or null if the header is missing/unparseable. */
@@ -34,14 +36,6 @@ export interface ParseError {
 export type MboxItem =
   | { ok: true; email: ParsedEmail }
   | { ok: false; error: ParseError };
-
-/** Candidate spans the sender-extraction questions choose between. */
-export interface SenderCandidates {
-  /** Over-found person/brand name sequences, deduped; may be empty. */
-  names: string[];
-  /** Email addresses found anywhere in the message, deduped; may be empty. */
-  emails: string[];
-}
 
 /** One email plus everything Jev returned for it. */
 export interface ClassifiedEmail {
