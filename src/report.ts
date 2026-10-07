@@ -2,15 +2,16 @@ import { once } from "node:events";
 import { createWriteStream, type WriteStream } from "node:fs";
 import { mkdir } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
-import type { SystemOneResult } from "@typesafe-ai/sdk";
-import type { EmailQuestions } from "./questions.ts";
-import type { ParsedEmail } from "./types.ts";
+import type {
+  Answer,
+  ParsedEmail,
+} from "./types.ts";
 
 /** One table row: an email and, on a live run, the classifier's answers for it. */
 export interface ReportRow {
   email: ParsedEmail;
-  /** The classifier's full result, or null on a dry run or a failed classification. */
-  result: SystemOneResult<EmailQuestions> | null;
+  /** The classifier's generic answers, or null on a dry run or a failure. */
+  answers: Answer[] | null;
   /** Time spent classifying this email, or null when it was not classified. */
   durationMs: number | null;
   /** Classification error message, or null when there was none. */
@@ -74,22 +75,24 @@ function escapeHtml(value: string): string {
     .replace(/'/g, "&#39;");
 }
 
-function renderAnswers(result: SystemOneResult<EmailQuestions>): string {
-  const parts: string[] = [];
-  for (const [key, answer] of Object.entries(result.answers)) {
-    const label = `<span class="key">${escapeHtml(key)}</span>`;
-    if (answer.type === "noul") {
-      const percent = Math.round(answer.noul * 100);
-      parts.push(
-        `<div class="answer">${label}<span class="value">${answer.noul.toFixed(2)}</span><span class="bar"><span style="width:${percent}%"></span></span></div>`
-      );
-    } else {
-      parts.push(
-        `<div class="answer">${label}<span class="value">${escapeHtml(answer.choice)}</span><span class="conf">${answer.confidence.toFixed(2)}</span></div>`
-      );
-    }
-  }
-  return parts.join("");
+/** Render the generic answers; probability answers get bars, selects get confidence. */
+function renderAnswers(answers: Answer[]): string {
+  return answers
+    .map((answer) => {
+      const label = `<span class="key">${escapeHtml(answer.name)}</span>`;
+      if (answer.kind === "probability") {
+        const percent = Math.round(answer.value * 100);
+        return `<div class="answer">${label}<span class="value">${answer.value.toFixed(2)}</span><span class="bar"><span style="width:${percent}%"></span></span></div>`;
+      }
+      if (answer.kind === "score") {
+        return `<div class="answer">${label}<span class="value">${answer.value.toFixed(2)}/${answer.max}</span><span class="conf">${answer.confidence.toFixed(2)}</span></div>`;
+      }
+      if (answer.kind === "select") {
+        return `<div class="answer">${label}<span class="value">${escapeHtml(answer.value)}</span><span class="conf">${answer.confidence.toFixed(2)}</span></div>`;
+      }
+      return `<div class="answer">${label}<span class="failed">refused</span></div>`;
+    })
+    .join("");
 }
 
 /** Human-readable duration: milliseconds under a second, seconds above. */
@@ -141,19 +144,19 @@ function renderBody(email: ParsedEmail): string {
 export function renderRow(row: ReportRow, index: number): string {
   const id = `body-${index}`;
   const preview = row.email.body.replace(/\s+/g, " ").trim().slice(0, 120);
-  let answers: string;
-  if (row.result) {
-    answers = renderAnswers(row.result);
+  let rendered: string;
+  if (row.answers) {
+    rendered = renderAnswers(row.answers);
   } else if (row.error) {
-    answers = `<span class="failed">failed: ${escapeHtml(row.error)}</span>`;
+    rendered = `<span class="failed">failed: ${escapeHtml(row.error)}</span>`;
   } else {
-    answers = '<span class="dry">dry run</span>';
+    rendered = '<span class="dry">dry run</span>';
   }
   if (row.durationMs != null) {
-    answers += `<div class="duration">${formatDuration(row.durationMs)}</div>`;
+    rendered += `<div class="duration">${formatDuration(row.durationMs)}</div>`;
   }
   if (row.truncated) {
-    answers += '<div class="truncated">body truncated</div>';
+    rendered += '<div class="truncated">body truncated</div>';
   }
   const title = row.email.subject || row.email.messageId;
   return [
@@ -165,7 +168,7 @@ export function renderRow(row: ReportRow, index: number): string {
     `<td><span class="preview">${escapeHtml(preview)}</span> <button class="view" data-modal="${id}">View</button>`,
     `<div class="modal" id="${id}" hidden><div class="modal-box"><div class="modal-head"><span class="title">${escapeHtml(title)}</span><button class="close">Close</button></div><div class="modal-body">${renderBody(row.email)}</div></div></div>`,
     "</td>",
-    `<td class="answers">${answers}</td>`,
+    `<td class="answers">${rendered}</td>`,
     "</tr>",
   ].join("");
 }

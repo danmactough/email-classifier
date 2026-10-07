@@ -125,13 +125,3 @@ describe("shouldClassify", () => {
   });
 });
 
-describe("isClassifierEnabled", () => {
-  it("is off unless CLASSIFIER is set to a name", async () => {
-    const { isClassifierEnabled } = await loadApp();
-
-    expect(isClassifierEnabled({})).toBe(false);
-    expect(isClassifierEnabled({ CLASSIFIER: "" })).toBe(false);
-    expect(isClassifierEnabled({ CLASSIFIER: "  " })).toBe(false);
-    expect(isClassifierEnabled({ CLASSIFIER: "jev" })).toBe(true);
-  });
-});

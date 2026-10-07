@@ -1,9 +1,7 @@
 import { createReadStream } from "node:fs";
 import { pathToFileURL } from "node:url";
-import { TypeSafeClient } from "@typesafe-ai/sdk";
-import { classifyEmail, resolveMaxBodyChars } from "./classify.ts";
+import { createClassifier } from "./classifiers/index.ts";
 import { parseMbox } from "./mbox.ts";
-import { buildQuestions } from "./questions.ts";
 import { openReport } from "./report.ts";
 import type { ClassifiedEmail, ParsedEmail, ParseError, RunSummary } from "./types.ts";
 
@@ -37,22 +35,15 @@ export function shouldClassify(email: ParsedEmail): boolean {
   return dateOk && fromOk && subjectOk && bodyOk;
 }
 
-/** True when classification is enabled: CLASSIFIER is set to a name. */
-export function isClassifierEnabled(env: NodeJS.ProcessEnv): boolean {
-  return Boolean(env.CLASSIFIER?.trim());
-}
-
 /** Entrypoint: stream mbox, parse, filter, classify, console.log the report. */
 export async function main(): Promise<void> {
   const path = process.argv[2] ?? process.env.MBOX_PATH;
   if (!path) throw new Error("usage: tsx src/app.ts <mbox-path>");
 
-  const classifier = process.env.CLASSIFIER?.trim() || null;
-  const client = isClassifierEnabled(process.env) ? new TypeSafeClient() : null;
-  const maxBodyChars = resolveMaxBodyChars(process.env);
+  const classifier = createClassifier(process.env);
   const startedAt = new Date();
   const writer = await openReport({
-    meta: { source: path, classifier, startedAt },
+    meta: { source: path, classifier: classifier?.name ?? null, startedAt },
   });
 
   const summary: RunSummary = { total: 0, success: 0, error: 0 };
@@ -63,6 +54,7 @@ export async function main(): Promise<void> {
   let classificationErrors = 0;
 
   const source = createReadStream(path, { encoding: "utf8" });
+  // TODO: Make this a queue to allow multiple emails to be classified in parallel
   for await (const item of parseMbox(source)) {
     summary.total += 1;
     if (!item.ok) {
@@ -73,23 +65,18 @@ export async function main(): Promise<void> {
     summary.success += 1;
     if (!shouldClassify(item.email)) continue;
     matched += 1;
-    let result: ClassifiedEmail["result"] | null = null;
+    let answers: ClassifiedEmail["answers"] | null = null;
     let durationMs: number | null = null;
     let failure: string | null = null;
     let truncated = false;
-    if (client) {
+    if (classifier) {
       const started = performance.now();
       try {
-        const email = await classifyEmail({
-          client,
-          email: item.email,
-          questions: buildQuestions({ email: item.email }),
-          maxBodyChars,
-        });
+        const email = await classifier.classify({ email: item.email });
         durationMs = performance.now() - started;
         classificationMs += durationMs;
         classified.push(email);
-        result = email.result;
+        answers = email.answers;
         truncated = email.truncated;
       } catch (cause) {
         durationMs = performance.now() - started;
@@ -100,7 +87,7 @@ export async function main(): Promise<void> {
     }
     await writer.addRow({
       email: item.email,
-      result,
+      answers,
       durationMs,
       error: failure,
       truncated,
@@ -126,7 +113,7 @@ export async function main(): Promise<void> {
   });
   console.error("report", writer.path);
 
-  if (!client) {
+  if (!classifier) {
     console.error(
       "dry run: set CLASSIFIER (in .env) to send matched emails to the classifier"
     );
@@ -134,7 +121,7 @@ export async function main(): Promise<void> {
   }
 
   for (const item of classified) {
-    console.log(item.id, JSON.stringify(item.result.answers));
+    console.log(item.id, JSON.stringify(item.answers));
   }
 }
 

@@ -7,6 +7,7 @@ import {
   getListOfProperNouns,
   getListOfWords,
   signatureRegion,
+  truncateBody,
 } from "./helpers.ts";
 
 /** Base-26 lowercase letters for a non-negative index, so generated names differ. */
@@ -162,5 +163,24 @@ describe("getListOfWords", () => {
   it("returns an empty list for empty or all-stop-word text", () => {
     expect(getListOfWords("")).toEqual([]);
     expect(getListOfWords("the and of")).toEqual([]);
+  });
+});
+
+
+describe("truncateBody", () => {
+  it("leaves a body at or under the cap untouched", () => {
+    expect(truncateBody("hello", 100)).toEqual({ body: "hello", truncated: false });
+    expect(truncateBody("hello", 5)).toEqual({ body: "hello", truncated: false });
+  });
+
+  it("cuts at a boundary and notes how much was omitted", () => {
+    const long = `${"a".repeat(50)}\n${"b".repeat(50)}`;
+
+    const { body, truncated } = truncateBody(long, 60);
+
+    expect(truncated).toBe(true);
+    expect(body).toContain("truncated");
+    expect(body).toContain("omitted");
+    expect(body.length).toBeLessThan(long.length);
   });
 });

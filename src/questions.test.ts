@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { buildQuestions, CATEGORIES } from "./questions.ts";
-import type { ParsedEmail } from "./types.ts";
+import { CATEGORIES, buildQuestions } from "./questions.ts";
+import type { ParsedEmail, Question } from "./types.ts";
 
 function email(overrides: Partial<ParsedEmail>): ParsedEmail {
   return {
@@ -16,6 +16,23 @@ function email(overrides: Partial<ParsedEmail>): ParsedEmail {
     ...overrides,
   };
 }
+
+function question(questions: Question[], name: string): Question {
+  const found = questions.find((q) => q.name === name);
+  if (!found) throw new Error(`missing question ${name}`);
+  return found;
+}
+
+const SELECTS = [
+  ["category", "select"],
+  ["free_trial_auto_converts", "binary"],
+  ["involves_free_trial", "binary"],
+  ["related_to_physical_goods", "binary"],
+  ["related_to_services", "binary"],
+  ["related_to_subscription", "binary"],
+  ["sender_email", "select"],
+  ["sender_name", "select"],
+] as const;
 
 describe("buildQuestions", () => {
   it("returns the eight questions with candidates as the sender options", () => {
@@ -33,31 +50,37 @@ describe("buildQuestions", () => {
       }),
     });
 
-    expect(Object.keys(questions).sort()).toEqual([
-      "category",
-      "free_trial_auto_converts",
-      "involves_free_trial",
-      "related_to_physical_goods",
-      "related_to_services",
-      "related_to_subscription",
-      "sender_email",
-      "sender_name",
-    ]);
-    expect(questions.related_to_subscription.type).toBe("noul");
-    expect(questions.related_to_physical_goods.type).toBe("noul");
-    expect(questions.related_to_services.type).toBe("noul");
-    expect(questions.involves_free_trial.type).toBe("noul");
-    expect(questions.involves_free_trial.criteria?.true).toBeTruthy();
-    expect(questions.free_trial_auto_converts.type).toBe("noul");
-    expect(questions.free_trial_auto_converts.criteria?.false).toBeTruthy();
-    expect(Object.keys(questions.category.criteria)).toEqual([...CATEGORIES]);
-    expect(Object.keys(questions.category.criteria)).toEqual(
-      expect.arrayContaining(["trial_started", "trial_ending", "trial_converted"])
-    );
-    expect(Object.keys(questions.sender_name.criteria)).toContain("none");
-    expect(Object.keys(questions.sender_name.criteria)).toContain("Shop Support");
-    expect(Object.keys(questions.sender_name.criteria)).toContain("Acme Cloud Team");
-    expect(Object.keys(questions.sender_email.criteria)).toEqual(
+    expect(
+      questions.map((q) => [q.name, q.kind] as const).sort()
+    ).toEqual(SELECTS);
+
+    const involves = question(questions, "involves_free_trial");
+    const autoConverts = question(questions, "free_trial_auto_converts");
+    const category = question(questions, "category") as Extract<
+      Question,
+      { kind: "select" }
+    >;
+    const senderName = question(questions, "sender_name") as Extract<
+      Question,
+      { kind: "select" }
+    >;
+    const senderEmail = question(questions, "sender_email") as Extract<
+      Question,
+      { kind: "select" }
+    >;
+
+    expect(involves.kind === "binary" ? involves.criteria?.true : null).toBeTruthy();
+    expect(autoConverts.kind === "binary" ? autoConverts.criteria?.false : null).toBeTruthy();
+    expect(category.options.map((option) => option.value)).toEqual([...CATEGORIES]);
+    const nameValues = senderName.options.map((option) => option.value);
+    expect(nameValues).toContain("Shop Support");
+    expect(nameValues).toContain("Acme Cloud Team");
+    expect(nameValues.at(-1)).toBe("none");
+    expect(senderName.options.at(-1)).toEqual({
+      value: "none",
+      description: "No candidate is the sender's name.",
+    });
+    expect(senderEmail.options.map((option) => option.value)).toEqual(
       expect.arrayContaining([
         "no-reply@mailer.shop.example.com",
         "help@shop.example.com",
@@ -68,11 +91,14 @@ describe("buildQuestions", () => {
 
   it("describes every category option with non-empty text", () => {
     const questions = buildQuestions({ email: email({}) });
+    const category = question(questions, "category") as Extract<
+      Question,
+      { kind: "select" }
+    >;
 
-    for (const label of CATEGORIES) {
-      const description = questions.category.criteria[label];
-      expect(typeof description).toBe("string");
-      expect((description as string).trim().length).toBeGreaterThan(0);
+    for (const option of category.options) {
+      expect(typeof option.description).toBe("string");
+      expect((option.description as string).trim().length).toBeGreaterThan(0);
     }
   });
 
@@ -90,7 +116,11 @@ describe("buildQuestions", () => {
       }),
     });
 
-    expect(Object.keys(questions.sender_name.criteria)).toContain(
+    const senderName = question(questions, "sender_name") as Extract<
+      Question,
+      { kind: "select" }
+    >;
+    expect(senderName.options.map((option) => option.value)).toContain(
       "Acme Cloud Team"
     );
   });

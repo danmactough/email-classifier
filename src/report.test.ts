@@ -11,35 +11,17 @@ import {
   reportPath,
   type ReportRow,
 } from "./report.ts";
-import type { ParsedEmail } from "./types.ts";
+import type { Answer, ParsedEmail } from "./types.ts";
 
-const RESULT = {
-  model: "test-model",
-  answers: {
-    related_to_subscription: { type: "noul", noul: 0.97 },
-    related_to_physical_goods: { type: "noul", noul: 0.02 },
-    related_to_services: { type: "noul", noul: 0.95 },
-    category: {
-      type: "choice",
-      choice: "trial_ending",
-      confidence: 0.88,
-      probabilities: { trial_ending: 0.88 },
-    },
-    sender_name: {
-      type: "choice",
-      choice: "none",
-      confidence: 0.6,
-      probabilities: { none: 0.6 },
-    },
-    sender_email: {
-      type: "choice",
-      choice: "none",
-      confidence: 0.6,
-      probabilities: { none: 0.6 },
-    },
-  },
-  usage: { input_tokens: 1, output_tokens: 1 },
-} as unknown as NonNullable<ReportRow["result"]>;
+const ANSWERS: Answer[] = [
+  { name: "related_to_subscription", kind: "probability", value: 0.97 },
+  { name: "related_to_physical_goods", kind: "probability", value: 0.02 },
+  { name: "related_to_services", kind: "probability", value: 0.95 },
+  { name: "category", kind: "select", value: "trial_ending", confidence: 0.88 },
+  { name: "order_progress", kind: "score", value: 2.1, confidence: 0.75, max: 3 },
+  { name: "sender_name", kind: "select", value: "none", confidence: 0.6 },
+  { name: "sender_email", kind: "select", value: "none", confidence: 0.6 },
+];
 
 function email(overrides: Partial<ParsedEmail>): ParsedEmail {
   return {
@@ -82,7 +64,7 @@ describe("renderRow", () => {
           subject: "S",
           body: "line1\nline2",
         }),
-        result: null,
+        answers: null,
         durationMs: null,
         error: null,
         truncated: false,
@@ -106,7 +88,7 @@ describe("renderRow", () => {
           subject: "s<t>",
           body: "b&c<d>",
         }),
-        result: null,
+        answers: null,
         durationMs: null,
         error: null,
         truncated: false,
@@ -125,7 +107,7 @@ describe("renderRow", () => {
     const dry = renderRow(
       {
         email: email({ body: "x" }),
-        result: null,
+        answers: null,
         durationMs: null,
         error: null,
         truncated: false,
@@ -137,7 +119,7 @@ describe("renderRow", () => {
     const live = renderRow(
       {
         email: email({ body: "x" }),
-        result: RESULT,
+        answers: ANSWERS,
         durationMs: null,
         error: null,
         truncated: false,
@@ -147,6 +129,8 @@ describe("renderRow", () => {
     expect(live).toContain("trial_ending");
     expect(live).toContain("0.97");
     expect(live).toContain("0.88");
+    expect(live).toContain("2.10/3");
+    expect(live).toContain("0.75");
     expect(live).not.toContain("dry run");
   });
 
@@ -154,7 +138,7 @@ describe("renderRow", () => {
     const live = renderRow(
       {
         email: email({ body: "x" }),
-        result: RESULT,
+        answers: ANSWERS,
         durationMs: 456,
         error: null,
         truncated: false,
@@ -166,7 +150,7 @@ describe("renderRow", () => {
     const failed = renderRow(
       {
         email: email({ body: "x" }),
-        result: null,
+        answers: null,
         durationMs: 210,
         error: '400 {"detail":{"error_type":"max_tokens_exceeded"}}',
         truncated: false,
@@ -180,7 +164,7 @@ describe("renderRow", () => {
     const dry = renderRow(
       {
         email: email({ body: "x" }),
-        result: null,
+        answers: null,
         durationMs: null,
         error: null,
         truncated: false,
@@ -194,7 +178,7 @@ describe("renderRow", () => {
     const row = renderRow(
       {
         email: email({ body: "x" }),
-        result: RESULT,
+        answers: ANSWERS,
         durationMs: 10,
         error: null,
         truncated: true,
@@ -209,7 +193,7 @@ describe("renderRow", () => {
     const withHtml = renderRow(
       {
         email: email({ htmlBody: "<p>Hi <b>there</b></p>", body: "Hi there" }),
-        result: null,
+        answers: null,
         durationMs: null,
         error: null,
         truncated: false,
@@ -229,7 +213,7 @@ describe("renderRow", () => {
     const noHtml = renderRow(
       {
         email: email({ htmlBody: null, body: "plain text" }),
-        result: null,
+        answers: null,
         durationMs: null,
         error: null,
         truncated: false,
@@ -317,7 +301,7 @@ describe("openReport", () => {
       });
       await writer.addRow({
         email: email({ messageId: "<row@x>", body: "hello" }),
-        result: null,
+        answers: null,
         durationMs: null,
         error: null,
         truncated: false,

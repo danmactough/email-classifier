@@ -103,3 +103,26 @@ export function getListOfWords(
   );
   return dedupe(words, options.max ?? MAX_CANDIDATES);
 }
+
+/**
+ * The raw header block: everything before the first blank line of a message.
+ */
+export function headerBlock(raw: string): string {
+  const end = raw.indexOf("\n\n");
+  return end === -1 ? raw : raw.slice(0, end);
+}
+
+/** Trim a body to a character cap at a nearby boundary, marking the omission. */
+export function truncateBody(
+  body: string,
+  maxChars: number
+): { body: string; truncated: boolean } {
+  if (body.length <= maxChars) return { body, truncated: false };
+  const cut = body.slice(0, maxChars);
+  const boundary = Math.max(cut.lastIndexOf("\n"), cut.lastIndexOf(" "));
+  const kept = boundary > maxChars * 0.5 ? cut.slice(0, boundary) : cut;
+  return {
+    body: `${kept}\n[…truncated: ${body.length - kept.length} characters omitted…]`,
+    truncated: true,
+  };
+}

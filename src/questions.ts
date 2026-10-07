@@ -1,10 +1,4 @@
 import {
-  choice,
-  noul,
-  type ChoiceQuestion,
-  type NoulQuestion,
-} from "@typesafe-ai/sdk";
-import {
   MAX_CANDIDATES,
   NONE,
   dedupe,
@@ -12,8 +6,9 @@ import {
   getListOfProperNouns,
   signatureRegion,
 } from "./helpers.ts";
-import type { ParsedEmail } from "./types.ts";
+import type { ParsedEmail, Question } from "./types.ts";
 
+/** The category vocabulary: what kind of transactional/subscription email this is. */
 export const CATEGORIES = [
   "promotion_spam",
   "trial_started",
@@ -31,7 +26,7 @@ export const CATEGORIES = [
 
 export type Category = (typeof CATEGORIES)[number];
 
-const CATEGORY_DESCRIPTIONS: Record<Category, string> = {
+export const CATEGORY_DESCRIPTIONS: Record<Category, string> = {
   promotion_spam:
     "Marketing, advertising, newsletters, or unsolicited bulk mail. No transaction and no subscription the recipient holds.",
   trial_started: "Confirms a free trial has just started or been activated.",
@@ -53,34 +48,8 @@ const CATEGORY_DESCRIPTIONS: Record<Category, string> = {
   other: "Anything that fits none of the above.",
 };
 
-/** The eight questions asked about one email; answer keys are inferred from this map. */
-export type EmailQuestionMap = {
-  related_to_subscription: NoulQuestion;
-  related_to_physical_goods: NoulQuestion;
-  related_to_services: NoulQuestion;
-  involves_free_trial: NoulQuestion;
-  free_trial_auto_converts: NoulQuestion;
-  category: ChoiceQuestion<Record<Category, string>>;
-  sender_name: ChoiceQuestion;
-  sender_email: ChoiceQuestion;
-};
-
-export type EmailQuestions = EmailQuestionMap;
-
-function optionMap(
-  values: string[],
-  none: string
-): Record<string, string | null> {
-  const criteria: Record<string, string | null> = {};
-  for (const value of values) criteria[value] = null;
-  criteria[NONE] = none;
-  return criteria;
-}
-
-/** Build the classifier's question set for one email (criteria include the candidates). */
-export function buildQuestions(options: {
-  email: ParsedEmail;
-}): EmailQuestions {
+/** Build the generic question set for one email (candidates become sender options). */
+export function buildQuestions(options: { email: ParsedEmail }): Question[] {
   const candidateEmails = getListOfEmailAddresses(options.email.raw);
   // Signature-tail names come first so a name-dense body cannot crowd the real
   // sender name out of the MAX_CANDIDATES cap; the whole body still contributes.
@@ -93,41 +62,69 @@ export function buildQuestions(options: {
     MAX_CANDIDATES
   );
 
-  return {
-    related_to_subscription: noul(
+  const binary = (
+    name: string,
+    question: string,
+    criteria?: { true: string; false: string }
+  ): Question => ({ kind: "binary", name, question, criteria });
+
+  return [
+    binary(
+      "related_to_subscription",
       "Does this email relate to a subscription: a recurring, auto-renewing service, membership, or plan?"
     ),
-    related_to_physical_goods: noul(
+    binary(
+      "related_to_physical_goods",
       "Does this email relate to purchasing physical good(s): tangible items that are shipped or delivered?"
     ),
-    related_to_services: noul(
+    binary(
+      "related_to_services",
       "Does this email relate to purchasing service(s): work, access, or expertise rather than a physical item?"
     ),
-    involves_free_trial: noul(
+    binary(
+      "involves_free_trial",
       "Does this email concern a free trial — a period during which a product, service, or subscription is provided at no cost to evaluate it?",
       {
         true: "Mentions a free trial, trial period, trial membership, or trial subscription: its start, an ending reminder, a conversion to paid, or its cancellation.",
         false: "No free trial is mentioned. The word 'trial' appears only in another sense (a trial run, a legal trial, a product name), or the email concerns a paid subscription or order with no free trial.",
       }
     ),
-    free_trial_auto_converts: noul(
+    binary(
+      "free_trial_auto_converts",
       "Does this email indicate that a free trial automatically converts into a paid subscription and charges the recipient unless they cancel before it ends?",
       {
         true: "Says the trial becomes a paid subscription at the end, that the recipient must cancel to avoid a charge, or that a charge or renewal follows the trial.",
         false: "The trial ends with no charge, no payment method is required, the trial is already on a paid plan, or the email does not connect the trial to a paid subscription.",
       }
     ),
-    category: choice(
-      "What kind of email is this, based on the transaction or subscription event it describes?",
-      CATEGORY_DESCRIPTIONS
-    ),
-    sender_name: choice(
-      "What is the sender's name: the brand or person evident in the message signature?",
-      optionMap(candidateNames, "No candidate is the sender's name.")
-    ),
-    sender_email: choice(
-      "What is the sender's email address?",
-      optionMap(candidateEmails, "No candidate is the sender's email address.")
-    ),
-  };
+    {
+      kind: "select",
+      name: "category",
+      question:
+        "What kind of email is this, based on the transaction or subscription event it describes?",
+      options: Object.entries(CATEGORY_DESCRIPTIONS).map(([value, description]) => ({
+        value,
+        description,
+      })),
+    },
+    {
+      kind: "select",
+      name: "sender_name",
+      question:
+        "What is the sender's name: the brand or person evident in the message signature?",
+      options: [
+        ...candidateNames.map((value) => ({ value })),
+        { value: NONE, description: "No candidate is the sender's name." },
+      ],
+    },
+    {
+      kind: "select",
+      name: "sender_email",
+      question: "What is the sender's email address?",
+      options: [
+        ...candidateEmails.map((value) => ({ value })),
+        { value: NONE, description: "No candidate is the sender's email address." },
+      ],
+    },
+  ];
 }

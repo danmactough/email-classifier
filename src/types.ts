@@ -1,5 +1,38 @@
-import type { SystemOneResult } from "@typesafe-ai/sdk";
-import type { EmailQuestions } from "./questions.ts";
+/** One generic question: what to ask about the email, in a classifier-neutral shape. */
+export type Question =
+  | {
+      kind: "binary";
+      name: string;
+      question: string;
+      criteria?: { true: string; false: string };
+    }
+  | {
+      kind: "score";
+      name: string;
+      question: string;
+      /** Rubric levels ordered lowest to highest; the description is the criterion. */
+      levels: Array<{ label: string; description: string }>;
+    }
+  | {
+      kind: "select";
+      name: string;
+      question: string;
+      options: Array<{ value: string; description?: string }>;
+    };
+
+/** The classifier-neutral answer the report renders for one question. */
+export type Answer =
+  | { name: string; kind: "probability"; value: number }
+  | {
+      name: string;
+      kind: "score";
+      value: number;
+      confidence: number;
+      /** The highest rubric index; the score scale is 0 to max. */
+      max: number;
+    }
+  | { name: string; kind: "select"; value: string; confidence: number }
+  | { name: string; kind: "refusal" };
 
 /** One message extracted from an mbox archive. */
 export interface ParsedEmail {
@@ -37,14 +70,13 @@ export type MboxItem =
   | { ok: true; email: ParsedEmail }
   | { ok: false; error: ParseError };
 
-/** One email plus everything the classifier returned for it. */
+/** One email plus the classifier's answers for it, in the generic format. */
 export interface ClassifiedEmail {
   /** Set from `email.messageId`. */
   id: string;
   email: ParsedEmail;
-  /** Full SDK response: model, typed answers, token usage. */
-  result: SystemOneResult<EmailQuestions>;
-  /** True when the body was trimmed to fit the API token budget. */
+  answers: Answer[];
+  /** True when the body was trimmed to fit the classifier's input budget. */
   truncated: boolean;
 }
 
