@@ -1,13 +1,8 @@
 import { TypeSafeClient } from "@typesafe-ai/sdk";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import type { ParsedEmail, Question } from "../types.ts";
 import { Classifier } from "./base.ts";
-import {
-  BODY_MAX_CHARS,
-  JevClassifier,
-  classifyEmail,
-  type EmailQuestions,
-} from "./jev.ts";
+import { BODY_MAX_CHARS, JevClassifier, classifyEmail, type EmailQuestions } from "./jev.ts";
 
 // Classifier tests use fake questions and raw responses: they exercise the
 // wire mappings for every generic kind, not the real question set (that is
@@ -95,7 +90,7 @@ function okResponse(body: unknown) {
 /** Both the classifier and classifyEmail send through global fetch, so stubs go there. */
 function stubFetch(record: Array<{ body: Record<string, unknown> }> = []) {
   vi.stubGlobal("fetch", async (_input: unknown, init?: RequestInit) => {
-    record.push({ body: JSON.parse(String(init?.body)) });
+    record.push({ body: JSON.parse(init?.body as string) });
     return okResponse(RAW_RESULT);
   });
   return record;
@@ -144,7 +139,7 @@ describe("classifyEmail", () => {
         "From: Billing <billing@example.com>",
         "Reply-To: help@example.com",
         "Subject: Invoice for March",
-      ].join("\n")
+      ].join("\n"),
     );
   });
 
@@ -203,12 +198,10 @@ describe("JevClassifier", () => {
     expect(result.id).toBe(EMAIL.messageId);
     expect(result.truncated).toBe(true);
     const wireQuestions = Object.values(
-      calls[0].body.questions as Record<string, { type: string; criteria?: object }>
+      calls[0].body.questions as Record<string, { type: string; criteria?: object }>,
     );
     expect(wireQuestions.length).toBeGreaterThan(0);
-    expect(
-      wireQuestions.every((q) => q.type === "noul" || q.type === "choice")
-    ).toBe(true);
+    expect(wireQuestions.every((q) => q.type === "noul" || q.type === "choice")).toBe(true);
     expect(calls[0].body.state).toMatchObject({
       body: expect.stringContaining("truncated"),
     });
@@ -278,7 +271,7 @@ describe("translateAnswers", () => {
     const jev = new JevClassifier({ apiKey: "test" });
 
     const answers = jev.translateAnswers(
-      RAW_RESULT as unknown as Parameters<typeof jev.translateAnswers>[0]
+      RAW_RESULT as unknown as Parameters<typeof jev.translateAnswers>[0],
     );
 
     expect(answers).toEqual([

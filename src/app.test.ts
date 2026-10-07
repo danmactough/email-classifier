@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import type { ParsedEmail } from "./types.ts";
 
 const FILTER_KEYS = [
@@ -55,15 +55,9 @@ describe("shouldClassify", () => {
       SUBJECT_FILTER: "receipt",
     });
 
-    expect(
-      shouldClassify(email({ from: "Invoice Bot", subject: "Your receipt" }))
-    ).toBe(true);
-    expect(shouldClassify(email({ from: "Invoice Bot", subject: "Hello" }))).toBe(
-      false
-    );
-    expect(
-      shouldClassify(email({ from: "Other", subject: "Your receipt" }))
-    ).toBe(false);
+    expect(shouldClassify(email({ from: "Invoice Bot", subject: "Your receipt" }))).toBe(true);
+    expect(shouldClassify(email({ from: "Invoice Bot", subject: "Hello" }))).toBe(false);
+    expect(shouldClassify(email({ from: "Other", subject: "Your receipt" }))).toBe(false);
   });
 
   it("gates on DATE_SINCE and the raw Date: string", async () => {
@@ -74,18 +68,27 @@ describe("shouldClassify", () => {
 
     expect(
       shouldClassify(
-        email({ date: "Tue, 1 Jan 2024 10:00:00 -0500", dateParsed: new Date("2024-01-01T15:00:00Z") })
-      )
+        email({
+          date: "Tue, 1 Jan 2024 10:00:00 -0500",
+          dateParsed: new Date("2024-01-01T15:00:00Z"),
+        }),
+      ),
     ).toBe(true);
     expect(
       shouldClassify(
-        email({ date: "Tue, 1 Jan 2024 10:00:00 -0500", dateParsed: new Date("2022-06-01T15:00:00Z") })
-      )
+        email({
+          date: "Tue, 1 Jan 2024 10:00:00 -0500",
+          dateParsed: new Date("2022-06-01T15:00:00Z"),
+        }),
+      ),
     ).toBe(false);
     expect(
       shouldClassify(
-        email({ date: "Sun, 1 Jan 2023 10:00:00 -0500", dateParsed: new Date("2024-01-01T15:00:00Z") })
-      )
+        email({
+          date: "Sun, 1 Jan 2023 10:00:00 -0500",
+          dateParsed: new Date("2024-01-01T15:00:00Z"),
+        }),
+      ),
     ).toBe(false);
   });
 
@@ -110,7 +113,7 @@ describe("shouldClassify", () => {
       "<x@example.com>",
       "Other",
       "Subject",
-      expect.stringContaining("from")
+      expect.stringContaining("from"),
     );
   });
 
@@ -124,4 +127,3 @@ describe("shouldClassify", () => {
     expect(input).toEqual(before);
   });
 });
-

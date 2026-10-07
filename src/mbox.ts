@@ -1,6 +1,6 @@
 import { simpleParser, type ParsedMail } from "mailparser";
 import { displayName } from "./helpers.ts";
-import type { MboxItem, ParsedEmail, ParseError } from "./types.ts";
+import type { MboxItem } from "./types.ts";
 
 const SNIPPET_LENGTH = 200;
 
@@ -27,12 +27,10 @@ async function* lines(source: AsyncIterable<string>): AsyncGenerator<string> {
 }
 
 /** Split a stream of text chunks into raw messages, one per mbox `From ` separator. */
-export async function* splitMessages(
-  source: AsyncIterable<string>
-): AsyncGenerator<string> {
+export async function* splitMessages(source: AsyncIterable<string>): AsyncGenerator<string> {
   let current: string[] = [];
   for await (const line of lines(source)) {
-    if (/^From /.test(line)) {
+    if (line.startsWith("From ")) {
       if (current.length > 0) yield current.join("\n");
       current = [];
       continue;
@@ -52,9 +50,7 @@ function unescapeFromLines(message: string): string {
 
 /** Recover a raw header value (e.g. the original Date: string) from header lines. */
 function rawHeaderLine(parsed: ParsedMail, name: string): string {
-  const found = parsed.headerLines.find(
-    (header) => header.key.toLowerCase() === name
-  );
+  const found = parsed.headerLines.find((header) => header.key.toLowerCase() === name);
   if (!found) return "";
   return found.line.slice(found.line.indexOf(":") + 1).trim();
 }
@@ -63,9 +59,7 @@ function rawHeaderLine(parsed: ParsedMail, name: string): string {
  * Parse each message from the source and yield a ParsedEmail or ParseError.
  * Messages missing a Message-ID are skipped and reported.
  */
-export async function* parseMbox(
-  source: AsyncIterable<string>
-): AsyncGenerator<MboxItem> {
+export async function* parseMbox(source: AsyncIterable<string>): AsyncGenerator<MboxItem> {
   for await (const raw of splitMessages(source)) {
     const message = unescapeFromLines(raw);
 

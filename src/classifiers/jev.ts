@@ -9,12 +9,7 @@ import {
 } from "@typesafe-ai/sdk";
 import { headerBlock, truncateBody } from "../helpers.ts";
 import { buildQuestions } from "../questions.ts";
-import type {
-  Answer,
-  ClassifiedEmail,
-  ParsedEmail,
-  Question,
-} from "../types.ts";
+import type { Answer, ClassifiedEmail, ParsedEmail, Question } from "../types.ts";
 import { Classifier } from "./base.ts";
 
 // The API caps `state` plus the longest question at 32k tokens, and we cannot
@@ -46,7 +41,7 @@ export class JevClassifier extends Classifier {
             EntryType,
             EntryType,
             ...EntryType[],
-          ]
+          ],
         );
       } else {
         const criteria: Record<string, string | null> = {};

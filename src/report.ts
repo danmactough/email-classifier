@@ -2,10 +2,7 @@ import { once } from "node:events";
 import { createWriteStream, type WriteStream } from "node:fs";
 import { mkdir } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
-import type {
-  Answer,
-  ParsedEmail,
-} from "./types.ts";
+import type { Answer, ParsedEmail } from "./types.ts";
 
 /** One table row: an email and, on a live run, the classifier's answers for it. */
 export interface ReportRow {
@@ -103,8 +100,7 @@ export function formatDuration(ms: number): string {
 
 /** Run-level timing line for the metadata section. */
 export function renderStats(summary: ReportSummary): string {
-  const average =
-    summary.classified > 0 ? summary.classificationMs / summary.classified : 0;
+  const average = summary.classified > 0 ? summary.classificationMs / summary.classified : 0;
   const parts = [
     `total time ${formatDuration(summary.elapsedMs)}`,
     `avg classification ${formatDuration(average)}`,
@@ -119,8 +115,7 @@ export function renderStats(summary: ReportSummary): string {
 // Render HTML bodies with scripts, remote resources, and navigation disabled:
 // the sandbox blocks everything, and the CSP allows images (data, https, http)
 // and inline styles while blocking remote loads beyond images.
-const BODY_CSP =
-  "default-src 'none'; img-src data: https: http:; style-src 'unsafe-inline'";
+const BODY_CSP = "default-src 'none'; img-src data: https: http:; style-src 'unsafe-inline'";
 
 // The parent page allows the sandboxed body iframes and the images and inline
 // styles they need, which a srcdoc frame also inherits from this document.

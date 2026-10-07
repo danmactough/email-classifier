@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import { CATEGORIES, buildQuestions } from "./questions.ts";
 import type { ParsedEmail, Question } from "./types.ts";
 
@@ -51,19 +51,13 @@ describe("buildQuestions", () => {
     });
 
     expect(
-      questions.map((q) => [q.name, q.kind] as const).sort()
+      questions.map((q) => [q.name, q.kind] as const).sort((a, b) => a[0].localeCompare(b[0])),
     ).toEqual(SELECTS);
 
     const involves = question(questions, "involves_free_trial");
     const autoConverts = question(questions, "free_trial_auto_converts");
-    const category = question(questions, "category") as Extract<
-      Question,
-      { kind: "select" }
-    >;
-    const senderName = question(questions, "sender_name") as Extract<
-      Question,
-      { kind: "select" }
-    >;
+    const category = question(questions, "category") as Extract<Question, { kind: "select" }>;
+    const senderName = question(questions, "sender_name") as Extract<Question, { kind: "select" }>;
     const senderEmail = question(questions, "sender_email") as Extract<
       Question,
       { kind: "select" }
@@ -81,20 +75,13 @@ describe("buildQuestions", () => {
       description: "No candidate is the sender's name.",
     });
     expect(senderEmail.options.map((option) => option.value)).toEqual(
-      expect.arrayContaining([
-        "no-reply@mailer.shop.example.com",
-        "help@shop.example.com",
-        "none",
-      ])
+      expect.arrayContaining(["no-reply@mailer.shop.example.com", "help@shop.example.com", "none"]),
     );
   });
 
   it("describes every category option with non-empty text", () => {
     const questions = buildQuestions({ email: email({}) });
-    const category = question(questions, "category") as Extract<
-      Question,
-      { kind: "select" }
-    >;
+    const category = question(questions, "category") as Extract<Question, { kind: "select" }>;
 
     for (const option of category.options) {
       expect(typeof option.description).toBe("string");
@@ -106,9 +93,7 @@ describe("buildQuestions", () => {
     const filler = Array.from(
       { length: 120 },
       (_, i) =>
-        `${String.fromCharCode(65 + (i % 26))}${String.fromCharCode(
-          97 + Math.floor(i / 26)
-        )}x`
+        `${String.fromCharCode(65 + (i % 26))}${String.fromCharCode(97 + Math.floor(i / 26))}x`,
     );
     const questions = buildQuestions({
       email: email({
@@ -116,12 +101,7 @@ describe("buildQuestions", () => {
       }),
     });
 
-    const senderName = question(questions, "sender_name") as Extract<
-      Question,
-      { kind: "select" }
-    >;
-    expect(senderName.options.map((option) => option.value)).toContain(
-      "Acme Cloud Team"
-    );
+    const senderName = question(questions, "sender_name") as Extract<Question, { kind: "select" }>;
+    expect(senderName.options.map((option) => option.value)).toContain("Acme Cloud Team");
   });
 });

@@ -1,7 +1,7 @@
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import {
   formatDuration,
   openReport,
@@ -9,7 +9,6 @@ import {
   renderStats,
   renderSummary,
   reportPath,
-  type ReportRow,
 } from "./report.ts";
 import type { Answer, ParsedEmail } from "./types.ts";
 
@@ -69,7 +68,7 @@ describe("renderRow", () => {
         error: null,
         truncated: false,
       },
-      3
+      3,
     );
 
     expect((row.match(/<td/g) ?? []).length).toBe(6);
@@ -93,7 +92,7 @@ describe("renderRow", () => {
         error: null,
         truncated: false,
       },
-      0
+      0,
     );
 
     expect(row).toContain("&lt;x&amp;y&gt;");
@@ -112,7 +111,7 @@ describe("renderRow", () => {
         error: null,
         truncated: false,
       },
-      0
+      0,
     );
     expect(dry).toContain("dry run");
 
@@ -124,7 +123,7 @@ describe("renderRow", () => {
         error: null,
         truncated: false,
       },
-      1
+      1,
     );
     expect(live).toContain("trial_ending");
     expect(live).toContain("0.97");
@@ -143,7 +142,7 @@ describe("renderRow", () => {
         error: null,
         truncated: false,
       },
-      7
+      7,
     );
     expect(live).toContain("456 ms");
 
@@ -155,7 +154,7 @@ describe("renderRow", () => {
         error: '400 {"detail":{"error_type":"max_tokens_exceeded"}}',
         truncated: false,
       },
-      8
+      8,
     );
     expect(failed).toContain("failed");
     expect(failed).toContain("max_tokens_exceeded");
@@ -169,7 +168,7 @@ describe("renderRow", () => {
         error: null,
         truncated: false,
       },
-      9
+      9,
     );
     expect(dry).toContain("dry run");
   });
@@ -183,7 +182,7 @@ describe("renderRow", () => {
         error: null,
         truncated: true,
       },
-      11
+      11,
     );
 
     expect(row).toContain("body truncated");
@@ -198,7 +197,7 @@ describe("renderRow", () => {
         error: null,
         truncated: false,
       },
-      5
+      5,
     );
 
     expect(withHtml).toContain('class="html-body"');
@@ -218,7 +217,7 @@ describe("renderRow", () => {
         error: null,
         truncated: false,
       },
-      6
+      6,
     );
     expect(noHtml).toContain("<pre>plain text</pre>");
     expect(noHtml).not.toContain("<iframe");
@@ -317,9 +316,7 @@ describe("openReport", () => {
         classificationErrors: 0,
       });
 
-      expect(
-        writer.path
-      ).toBe(reportPath({ classifier: null, startedAt, dir }));
+      expect(writer.path).toBe(reportPath({ classifier: null, startedAt, dir }));
       const html = await readFile(writer.path, "utf8");
       expect(html.startsWith("<!doctype html>")).toBe(true);
       expect(html.trimEnd().endsWith("</html>")).toBe(true);

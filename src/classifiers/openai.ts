@@ -56,7 +56,7 @@ export class OpenAIClassifier extends Classifier {
         choices: question.options.map((option) =>
           option.description
             ? { value: option.value, description: option.description }
-            : { value: option.value }
+            : { value: option.value },
         ),
       };
     });

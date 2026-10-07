@@ -66,9 +66,7 @@ export interface ParseError {
 }
 
 /** One item yielded by parseMbox: a parsed email, or a reason it was dropped. */
-export type MboxItem =
-  | { ok: true; email: ParsedEmail }
-  | { ok: false; error: ParseError };
+export type MboxItem = { ok: true; email: ParsedEmail } | { ok: false; error: ParseError };
 
 /** One email plus the classifier's answers for it, in the generic format. */
 export interface ClassifiedEmail {

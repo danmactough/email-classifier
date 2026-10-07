@@ -1,5 +1,5 @@
 import { readFile } from "node:fs/promises";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vite-plus/test";
 import type { MboxItem } from "./types.ts";
 import { parseMbox, splitMessages } from "./mbox.ts";
 
@@ -37,7 +37,7 @@ describe("splitMessages", () => {
   it("yields one raw message per From separator, reassembling chunk splits", async () => {
     const archive = "From a@x\nA1\nA2\n\nFrom b@x\nB1";
 
-    const messages = await collect(splitMessages(chunked([...archive])));
+    const messages = await collect(splitMessages(chunked(Array.from(archive))));
 
     expect(messages).toEqual(["A1\nA2\n", "B1"]);
   });
@@ -68,10 +68,7 @@ describe("parseMbox", () => {
     const items = await collect(parseMbox(chunked([archive])));
     const emails = emailsOf(items);
 
-    expect(emails.map((email) => email.messageId)).toEqual([
-      "<a@example.com>",
-      "<b@example.com>",
-    ]);
+    expect(emails.map((email) => email.messageId)).toEqual(["<a@example.com>", "<b@example.com>"]);
     expect(emails[0].subject).toBe("Hello");
     expect(emails[0].fromParsed.name).toBe("Alice");
     expect(emails[0].date).toBe("Mon, 3 Jan 2022 09:12:00 -0500");
@@ -159,10 +156,7 @@ describe("parseMbox", () => {
   });
 
   it("parses the full fixture archive and reports the message with no Message-ID", async () => {
-    const contents = await readFile(
-      new URL("./__fixtures__/sample.mbox", import.meta.url),
-      "utf8"
-    );
+    const contents = await readFile(new URL("./__fixtures__/sample.mbox", import.meta.url), "utf8");
 
     const items = await collect(parseMbox(chunked([contents])));
     const emails = items.filter((item) => item.ok).map((item) => item.email);

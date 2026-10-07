@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import type { ParsedEmail, Question } from "../types.ts";
 import { Classifier } from "./base.ts";
 import { BODY_MAX_CHARS, OpenAIClassifier } from "./openai.ts";
@@ -102,7 +102,7 @@ function stubFetch(record: Array<{ headers: Headers; body: Record<string, unknow
   vi.stubGlobal("fetch", async (_input: unknown, init?: RequestInit) => {
     record.push({
       headers: new Headers(init?.headers),
-      body: JSON.parse(String(init?.body)),
+      body: JSON.parse(init?.body as string),
     });
     return okResponse(RAW_DECISION);
   });
@@ -141,9 +141,7 @@ describe("OpenAIClassifier", () => {
     expect(body.input).toContain("Reply-To: help@example.com");
     const wireQuestions = body.questions;
     expect(wireQuestions.length).toBeGreaterThan(0);
-    expect(
-      wireQuestions.every((q) => q.type === "predicate" || q.type === "choice")
-    ).toBe(true);
+    expect(wireQuestions.every((q) => q.type === "predicate" || q.type === "choice")).toBe(true);
     expect(result.answers).toEqual([
       { name: "is_urgent", kind: "probability", value: 0.93 },
       { name: "involves_refund", kind: "refusal" },
@@ -164,9 +162,7 @@ describe("OpenAIClassifier", () => {
   });
 
   it("maps generic binary questions onto predicates, criteria folded in", () => {
-    const wire = new OpenAIClassifier({ apiKey: "test" }).translateQuestions(
-      QUESTIONS
-    );
+    const wire = new OpenAIClassifier({ apiKey: "test" }).translateQuestions(QUESTIONS);
 
     const urgent = wire.find((q) => q.name === "is_urgent");
     if (urgent?.type !== "predicate") throw new Error("expected predicate");
@@ -179,9 +175,7 @@ describe("OpenAIClassifier", () => {
   });
 
   it("maps score rubrics onto score questions", () => {
-    const wire = new OpenAIClassifier({ apiKey: "test" }).translateQuestions(
-      QUESTIONS
-    );
+    const wire = new OpenAIClassifier({ apiKey: "test" }).translateQuestions(QUESTIONS);
 
     const sentiment = wire.find((q) => q.name === "sentiment");
     if (sentiment?.type !== "score") throw new Error("expected score");
@@ -194,9 +188,7 @@ describe("OpenAIClassifier", () => {
   });
 
   it("maps select options to choices with descriptions, none kept last", () => {
-    const wire = new OpenAIClassifier({ apiKey: "test" }).translateQuestions(
-      QUESTIONS
-    );
+    const wire = new OpenAIClassifier({ apiKey: "test" }).translateQuestions(QUESTIONS);
 
     const topic = wire.find((q) => q.name === "topic");
     if (topic?.type !== "choice") throw new Error("expected choice");

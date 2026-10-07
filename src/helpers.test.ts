@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import {
   MAX_CANDIDATES,
   dedupe,
@@ -34,20 +34,14 @@ describe("displayName", () => {
   });
 
   it("keeps apostrophes inside a name", () => {
-    expect(displayName("O'Brien Support <help@acme.example>")).toBe(
-      "O'Brien Support"
-    );
+    expect(displayName("O'Brien Support <help@acme.example>")).toBe("O'Brien Support");
     expect(displayName("'Quoted' <help@acme.example>")).toBe("Quoted");
   });
 });
 
 describe("dedupe", () => {
   it("trims, drops blanks, duplicates, and the none label, and caps", () => {
-    expect(dedupe([" a ", "a", "", "b", "none", "c", "d"], 3)).toEqual([
-      "a",
-      "b",
-      "c",
-    ]);
+    expect(dedupe([" a ", "a", "", "b", "none", "c", "d"], 3)).toEqual(["a", "b", "c"]);
   });
 
   it("returns nothing for a non-positive limit", () => {
@@ -70,9 +64,7 @@ describe("signatureRegion", () => {
 
 describe("getListOfProperNouns", () => {
   it("finds proper-noun sequences, deduped in first-seen order", () => {
-    const names = getListOfProperNouns(
-      "Thanks,\nMick Jones\nAcme Cloud Team\nMick Jones\n"
-    );
+    const names = getListOfProperNouns("Thanks,\nMick Jones\nAcme Cloud Team\nMick Jones\n");
 
     expect(names).toContain("Mick Jones");
     expect(names).toContain("Acme Cloud Team");
@@ -80,9 +72,7 @@ describe("getListOfProperNouns", () => {
   });
 
   it("does not merge a name across lines", () => {
-    const names = getListOfProperNouns(
-      "Thanks,\nMick Jones\nHead of Support\nAcme Inc\n"
-    );
+    const names = getListOfProperNouns("Thanks,\nMick Jones\nHead of Support\nAcme Inc\n");
 
     expect(names).toContain("Mick Jones");
     expect(names.every((name) => !name.includes("\n"))).toBe(true);
@@ -94,10 +84,7 @@ describe("getListOfProperNouns", () => {
   });
 
   it("defaults to MAX_CANDIDATES and honors max", () => {
-    const words = Array.from(
-      { length: 150 },
-      (_, index) => `Name${letters(index)}`
-    );
+    const words = Array.from({ length: 150 }, (_, index) => `Name${letters(index)}`);
     const text = words.join("\n");
 
     expect(getListOfProperNouns(text)).toHaveLength(MAX_CANDIDATES);
@@ -107,9 +94,7 @@ describe("getListOfProperNouns", () => {
 
 describe("getListOfEmailAddresses", () => {
   it("finds addresses, deduped in first-seen order", () => {
-    const emails = getListOfEmailAddresses(
-      "From a@x.com, cc a@x.com and b@y.org."
-    );
+    const emails = getListOfEmailAddresses("From a@x.com, cc a@x.com and b@y.org.");
 
     expect(emails).toEqual(["a@x.com", "b@y.org"]);
   });
@@ -119,10 +104,7 @@ describe("getListOfEmailAddresses", () => {
   });
 
   it("defaults to MAX_CANDIDATES and honors max", () => {
-    const addresses = Array.from(
-      { length: 150 },
-      (_, index) => `user${index}@example.com`
-    );
+    const addresses = Array.from({ length: 150 }, (_, index) => `user${index}@example.com`);
     const text = addresses.join("\n");
 
     expect(getListOfEmailAddresses(text)).toHaveLength(MAX_CANDIDATES);
@@ -135,29 +117,29 @@ describe("getListOfEmailAddresses", () => {
 
 describe("getListOfWords", () => {
   it("drops default stop words and keeps first-seen order", () => {
-    expect(getListOfWords("The quick brown fox jumps over the lazy dog")).toEqual(
-      ["quick", "brown", "fox", "jumps", "lazy", "dog"]
-    );
+    expect(getListOfWords("The quick brown fox jumps over the lazy dog")).toEqual([
+      "quick",
+      "brown",
+      "fox",
+      "jumps",
+      "lazy",
+      "dog",
+    ]);
   });
 
   it("extends the default list with additionalStopWords", () => {
-    expect(
-      getListOfWords("alpha beta gamma", { additionalStopWords: ["beta"] })
-    ).toEqual(["alpha", "gamma"]);
+    expect(getListOfWords("alpha beta gamma", { additionalStopWords: ["beta"] })).toEqual([
+      "alpha",
+      "gamma",
+    ]);
   });
 
   it("replaces the default list with stopWords", () => {
-    expect(getListOfWords("the alpha beta", { stopWords: ["alpha"] })).toEqual([
-      "the",
-      "beta",
-    ]);
+    expect(getListOfWords("the alpha beta", { stopWords: ["alpha"] })).toEqual(["the", "beta"]);
   });
 
   it("dedupes and caps the result", () => {
-    expect(getListOfWords("alpha alpha beta gamma", { max: 2 })).toEqual([
-      "alpha",
-      "beta",
-    ]);
+    expect(getListOfWords("alpha alpha beta gamma", { max: 2 })).toEqual(["alpha", "beta"]);
   });
 
   it("returns an empty list for empty or all-stop-word text", () => {
@@ -165,7 +147,6 @@ describe("getListOfWords", () => {
     expect(getListOfWords("the and of")).toEqual([]);
   });
 });
-
 
 describe("truncateBody", () => {
   it("leaves a body at or under the cap untouched", () => {

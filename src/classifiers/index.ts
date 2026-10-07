@@ -9,18 +9,14 @@ export function createClassifier(env: NodeJS.ProcessEnv): Classifier | null {
   if (name === "jev") {
     const apiKey = env.TYPESAFE_API_KEY?.trim();
     if (!apiKey) {
-      throw new Error(
-        "CLASSIFIER=jev requires TYPESAFE_API_KEY (set it in .env)"
-      );
+      throw new Error("CLASSIFIER=jev requires TYPESAFE_API_KEY (set it in .env)");
     }
     return new JevClassifier({ apiKey });
   }
   if (name === "openai") {
     const apiKey = env.OPENAPI_API_KEY?.trim();
     if (!apiKey) {
-      throw new Error(
-        "CLASSIFIER=openai requires OPENAPI_API_KEY (set it in .env)"
-      );
+      throw new Error("CLASSIFIER=openai requires OPENAPI_API_KEY (set it in .env)");
     }
     return new OpenAIClassifier({ apiKey });
   }

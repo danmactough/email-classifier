@@ -2,18 +2,17 @@
   "name": "email-classifier",
   "version": "1.0.0",
   "description": "",
+  "keywords": [],
+  "license": "MIT",
+  "author": "Dan MacTough <danmactough@gmail.com> (http://mact.me/)",
   "type": "module",
-  "main": "index.js",
+  "main": "src/app.ts",
   "scripts": {
-    "dev": "tsx watch src/app.ts",
-    "start": "tsx src/app.ts",
-    "test": "vitest run",
-    "test:watch": "vitest",
+    "start": "node src/app.ts",
+    "test": "vp test run",
+    "test:watch": "vp test",
     "typecheck": "tsc --noEmit"
   },
-  "keywords": [],
-  "author": "Dan MacTough <danmactough@gmail.com> (http://mact.me/)",
-  "license": "MIT",
   "dependencies": {
     "@typesafe-ai/sdk": "^0.6.0",
     "mailparser": "^3.9.28",
@@ -24,6 +23,12 @@
     "@types/node": "^26.6.2",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",
-    "vitest": "^5.0.1"
+    "vite-plus": "1.1.0"
+  },
+  "overrides": {
+    "vite": "npm:@voidzero-dev/vite-plus-core@1.1.0"
+  },
+  "engines": {
+    "node": ">=24"
   }
 }

@@ -5,22 +5,22 @@ import { parseMbox } from "./mbox.ts";
 import { openReport } from "./report.ts";
 import type { ClassifiedEmail, ParsedEmail, ParseError, RunSummary } from "./types.ts";
 
-
 try {
   process.loadEnvFile();
 } catch {
   // no .env file present; rely on the ambient environment
 }
 
-const FROM_FILTER = new RegExp(process.env.FROM_FILTER ?? ".*", 'i');
-const DATE_FILTER = new RegExp(process.env.DATE_FILTER ?? ".*", 'i');
-const SUBJECT_FILTER = new RegExp(process.env.SUBJECT_FILTER ?? ".*", 'i');
-const BODY_FILTER = new RegExp(process.env.BODY_FILTER ?? ".*", 'is');
+const FROM_FILTER = new RegExp(process.env.FROM_FILTER ?? ".*", "i");
+const DATE_FILTER = new RegExp(process.env.DATE_FILTER ?? ".*", "i");
+const SUBJECT_FILTER = new RegExp(process.env.SUBJECT_FILTER ?? ".*", "i");
+const BODY_FILTER = new RegExp(process.env.BODY_FILTER ?? ".*", "is");
 const DATE_SINCE = new Date(process.env.DATE_SINCE ?? "1970-01-01T00:00:00Z");
 
 /** True when an email matches the FILTER regex on any of its fields. */
 export function shouldClassify(email: ParsedEmail): boolean {
-  const dateOk = email.dateParsed != null && email.dateParsed >= DATE_SINCE && DATE_FILTER.test(email.date);
+  const dateOk =
+    email.dateParsed != null && email.dateParsed >= DATE_SINCE && DATE_FILTER.test(email.date);
   const fromOk = FROM_FILTER.test(email.from);
   const subjectOk = SUBJECT_FILTER.test(email.subject);
   const bodyOk = BODY_FILTER.test(email.body);
@@ -30,7 +30,8 @@ export function shouldClassify(email: ParsedEmail): boolean {
     if (!fromOk) failMsgs.push(`from ${email.from} !~ ${FROM_FILTER}`);
     if (!subjectOk) failMsgs.push(`subject ${email.subject} !~ ${SUBJECT_FILTER}`);
     if (!bodyOk) failMsgs.push(`body !~ ${BODY_FILTER}`);
-    if (failMsgs.length > 0) console.error("skipping", email.messageId, email.from, email.subject, failMsgs.join("; "));
+    if (failMsgs.length > 0)
+      console.error("skipping", email.messageId, email.from, email.subject, failMsgs.join("; "));
   }
   return dateOk && fromOk && subjectOk && bodyOk;
 }
@@ -114,9 +115,7 @@ export async function main(): Promise<void> {
   console.error("report", writer.path);
 
   if (!classifier) {
-    console.error(
-      "dry run: set CLASSIFIER (in .env) to send matched emails to the classifier"
-    );
+    console.error("dry run: set CLASSIFIER (in .env) to send matched emails to the classifier");
     return;
   }
 

@@ -1,9 +1,4 @@
-import type {
-  Answer,
-  ClassifiedEmail,
-  ParsedEmail,
-  Question,
-} from "../types.ts";
+import type { Answer, ClassifiedEmail, ParsedEmail, Question } from "../types.ts";
 
 /**
  * A supported email classifier. `CLASSIFIER` selects the implementation by
