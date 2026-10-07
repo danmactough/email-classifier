@@ -17,14 +17,36 @@ import { Classifier } from "./base.ts";
 // 100k chars leaves room for the header block and the candidate options.
 export const BODY_MAX_CHARS = 100_000;
 
-/** TypeSafe System One classifier ("jev"). */
+/**
+ * TypeSafe System One classifier ("jev") against api.typesafe.ai, and the base
+ * for classifiers speaking the same wire format on other hosts; subclass to
+ * adapt a host's client configuration, body cap, and criteria window. See
+ * OllamaClassifier.
+ */
 export class JevClassifier extends Classifier {
-  readonly name = "jev";
+  readonly name: string = "jev";
   readonly #client: TypeSafeClient;
+  /**
+   * Char cap on the message body, chosen per constructor by the host; the
+   * endpoint budgets tokens, and we cannot count tokens without a tokenizer.
+   */
+  protected readonly bodyMaxChars: number;
 
-  constructor(options: { apiKey: string }) {
+  constructor(options: {
+    apiKey: string;
+    baseURL?: string;
+    model?: string;
+    timeout?: number;
+    bodyMaxChars?: number;
+  }) {
     super();
-    this.#client = new TypeSafeClient({ apiKey: options.apiKey });
+    this.bodyMaxChars = options.bodyMaxChars ?? BODY_MAX_CHARS;
+    this.#client = new TypeSafeClient({
+      apiKey: options.apiKey,
+      baseURL: options.baseURL,
+      defaultModel: options.model,
+      timeout: options.timeout,
+    });
   }
 
   /** Map the generic questions onto System One's noul/score/choice wire format. */
@@ -44,14 +66,21 @@ export class JevClassifier extends Classifier {
           ],
         );
       } else {
-        const criteria: Record<string, string | null> = {};
-        for (const option of question.options) {
-          criteria[option.value] = option.description ?? null;
-        }
-        map[question.name] = choice(question.question, criteria);
+        map[question.name] = choice(question.question, this.choiceCriteria(question.options));
       }
     }
     return map;
+  }
+
+  /** Shape a select question's options into choice criteria, in order. */
+  protected choiceCriteria(
+    options: Array<{ value: string; description?: string }>,
+  ): Record<string, string | null> {
+    const criteria: Record<string, string | null> = {};
+    for (const option of options) {
+      criteria[option.value] = option.description ?? null;
+    }
+    return criteria;
   }
 
   /** System One's noul/score/choice responses become the generic answers. */
@@ -84,7 +113,7 @@ export class JevClassifier extends Classifier {
       client: this.#client,
       email,
       questions: this.translateQuestions(buildQuestions({ email })),
-      maxBodyChars: BODY_MAX_CHARS,
+      maxBodyChars: this.bodyMaxChars,
     });
     return {
       id: email.messageId,
