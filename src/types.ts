@@ -37,7 +37,7 @@ export type MboxItem =
   | { ok: true; email: ParsedEmail }
   | { ok: false; error: ParseError };
 
-/** One email plus everything Jev returned for it. */
+/** One email plus everything the classifier returned for it. */
 export interface ClassifiedEmail {
   /** Set from `email.messageId`. */
   id: string;

@@ -37,9 +37,9 @@ export function shouldClassify(email: ParsedEmail): boolean {
   return dateOk && fromOk && subjectOk && bodyOk;
 }
 
-/** True only when JEV_LIVE is explicitly enabled. */
-export function isLiveEnabled(env: NodeJS.ProcessEnv): boolean {
-  return env.JEV_LIVE === "1";
+/** True when classification is enabled: CLASSIFIER is set to a name. */
+export function isClassifierEnabled(env: NodeJS.ProcessEnv): boolean {
+  return Boolean(env.CLASSIFIER?.trim());
 }
 
 /** Entrypoint: stream mbox, parse, filter, classify, console.log the report. */
@@ -47,11 +47,12 @@ export async function main(): Promise<void> {
   const path = process.argv[2] ?? process.env.MBOX_PATH;
   if (!path) throw new Error("usage: tsx src/app.ts <mbox-path>");
 
-  const client = isLiveEnabled(process.env) ? new TypeSafeClient() : null;
+  const classifier = process.env.CLASSIFIER?.trim() || null;
+  const client = isClassifierEnabled(process.env) ? new TypeSafeClient() : null;
   const maxBodyChars = resolveMaxBodyChars(process.env);
   const startedAt = new Date();
   const writer = await openReport({
-    meta: { source: path, live: client !== null, startedAt },
+    meta: { source: path, classifier, startedAt },
   });
 
   const summary: RunSummary = { total: 0, success: 0, error: 0 };
@@ -127,7 +128,7 @@ export async function main(): Promise<void> {
 
   if (!client) {
     console.error(
-      "dry run: set JEV_LIVE=1 (in .env) to send matched emails to Jev"
+      "dry run: set CLASSIFIER (in .env) to send matched emails to the classifier"
     );
     return;
   }

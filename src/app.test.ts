@@ -125,13 +125,13 @@ describe("shouldClassify", () => {
   });
 });
 
-describe("isLiveEnabled", () => {
-  it("is off unless JEV_LIVE is exactly 1", async () => {
-    const { isLiveEnabled } = await loadApp();
+describe("isClassifierEnabled", () => {
+  it("is off unless CLASSIFIER is set to a name", async () => {
+    const { isClassifierEnabled } = await loadApp();
 
-    expect(isLiveEnabled({})).toBe(false);
-    expect(isLiveEnabled({ JEV_LIVE: "0" })).toBe(false);
-    expect(isLiveEnabled({ JEV_LIVE: "" })).toBe(false);
-    expect(isLiveEnabled({ JEV_LIVE: "1" })).toBe(true);
+    expect(isClassifierEnabled({})).toBe(false);
+    expect(isClassifierEnabled({ CLASSIFIER: "" })).toBe(false);
+    expect(isClassifierEnabled({ CLASSIFIER: "  " })).toBe(false);
+    expect(isClassifierEnabled({ CLASSIFIER: "jev" })).toBe(true);
   });
 });

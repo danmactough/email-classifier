@@ -35,8 +35,8 @@ function headerBlock(raw: string): string {
 }
 
 /**
- * Shape the email into Jev `state` inline, ask the caller-supplied questions,
- * and return everything Jev sent back.
+ * Shape the email into the classifier's `state` inline, ask the caller-supplied questions,
+ * and return everything the classifier sent back.
  */
 export async function classifyEmail(options: {
   client: TypeSafeClient;

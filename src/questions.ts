@@ -77,7 +77,7 @@ function optionMap(
   return criteria;
 }
 
-/** Build the Jev question set for one email (criteria include the candidates). */
+/** Build the classifier's question set for one email (criteria include the candidates). */
 export function buildQuestions(options: {
   email: ParsedEmail;
 }): EmailQuestions {

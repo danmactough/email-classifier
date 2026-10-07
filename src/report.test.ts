@@ -14,7 +14,7 @@ import {
 import type { ParsedEmail } from "./types.ts";
 
 const RESULT = {
-  model: "jev-test",
+  model: "test-model",
   answers: {
     related_to_subscription: { type: "noul", noul: 0.97 },
     related_to_physical_goods: { type: "noul", noul: 0.02 },
@@ -57,11 +57,17 @@ function email(overrides: Partial<ParsedEmail>): ParsedEmail {
 }
 
 describe("reportPath", () => {
-  it("names the file with the epoch ms of the start time", () => {
-    const target = reportPath({ startedAt: new Date(1700000000000) });
+  it("names the file with the classifier and the epoch ms of the start time", () => {
+    const target = reportPath({ classifier: "jev", startedAt: new Date(1700000000000) });
 
     expect(target.startsWith("/")).toBe(true);
     expect(target.endsWith("jev-report-1700000000000.html")).toBe(true);
+  });
+
+  it("falls back to a plain prefix when no classifier is named", () => {
+    const target = reportPath({ classifier: null, startedAt: new Date(1700000000000) });
+
+    expect(target.endsWith("report-1700000000000.html")).toBe(true);
   });
 });
 
@@ -302,11 +308,11 @@ describe("renderStats", () => {
 
 describe("openReport", () => {
   it("writes the head, a row, and the footer to the epoch-named file", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "jev-report-"));
+    const dir = await mkdtemp(join(tmpdir(), "report-"));
     try {
       const startedAt = new Date(1700000000000);
       const writer = await openReport({
-        meta: { source: "sample.mbox", live: false, startedAt },
+        meta: { source: "sample.mbox", classifier: null, startedAt },
         dir,
       });
       await writer.addRow({
@@ -327,7 +333,9 @@ describe("openReport", () => {
         classificationErrors: 0,
       });
 
-      expect(writer.path).toBe(reportPath({ startedAt, dir }));
+      expect(
+        writer.path
+      ).toBe(reportPath({ classifier: null, startedAt, dir }));
       const html = await readFile(writer.path, "utf8");
       expect(html.startsWith("<!doctype html>")).toBe(true);
       expect(html.trimEnd().endsWith("</html>")).toBe(true);

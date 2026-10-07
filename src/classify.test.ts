@@ -9,7 +9,7 @@ import { buildQuestions } from "./questions.ts";
 import type { ParsedEmail } from "./types.ts";
 
 const FAKE_RESULT = {
-  model: "jev-test",
+  model: "test-model",
   answers: {
     related_to_subscription: { type: "noul", noul: 0.97 },
     related_to_physical_goods: { type: "noul", noul: 0.02 },

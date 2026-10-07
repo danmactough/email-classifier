@@ -6,10 +6,10 @@ import type { SystemOneResult } from "@typesafe-ai/sdk";
 import type { EmailQuestions } from "./questions.ts";
 import type { ParsedEmail } from "./types.ts";
 
-/** One table row: an email and, on a live run, Jev's answers for it. */
+/** One table row: an email and, on a live run, the classifier's answers for it. */
 export interface ReportRow {
   email: ParsedEmail;
-  /** Jev's full result, or null on a dry run or a failed classification. */
+  /** The classifier's full result, or null on a dry run or a failed classification. */
   result: SystemOneResult<EmailQuestions> | null;
   /** Time spent classifying this email, or null when it was not classified. */
   durationMs: number | null;
@@ -23,8 +23,8 @@ export interface ReportRow {
 export interface ReportMeta {
   /** The mbox path that was read. */
   source: string;
-  /** True when Jev was actually called. */
-  live: boolean;
+  /** Identity of the classifier invoked this run, or null for a dry run. */
+  classifier: string | null;
   /** Run start time, used for the header and the filename. */
   startedAt: Date;
 }
@@ -39,7 +39,7 @@ export interface ReportSummary {
   elapsedMs: number;
   /** Total ms spent awaiting classification across all emails. */
   classificationMs: number;
-  /** Number of emails actually sent to Jev. */
+  /** Number of emails actually sent to the classifier. */
   classified: number;
   /** Number of classifications that failed. */
   classificationErrors: number;
@@ -54,10 +54,15 @@ export interface ReportWriter {
   close(summary: ReportSummary): Promise<void>;
 }
 
-/** Absolute path for a run, `reports/jev-report-<epochMs>.html`. */
-export function reportPath(options: { startedAt: Date; dir?: string }): string {
+/** Absolute path for a run, `reports/<classifier>-report-<epochMs>.html`. */
+export function reportPath(options: {
+  classifier: string | null;
+  startedAt: Date;
+  dir?: string;
+}): string {
   const dir = resolve(options.dir ?? "reports");
-  return join(dir, `jev-report-${options.startedAt.getTime()}.html`);
+  const prefix = options.classifier ? `${options.classifier}-report` : "report";
+  return join(dir, `${prefix}-${options.startedAt.getTime()}.html`);
 }
 
 function escapeHtml(value: string): string {
@@ -179,9 +184,9 @@ const STYLE = `
 body { margin: 0; background: #f6f7f9; color: #1f2328; font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; }
 .wrap { max-width: 1400px; margin: 0 auto; padding: 28px 20px 40px; }
 .page { display: flex; align-items: center; gap: 10px; }
-h1 { font-size: 20px; margin: 0; }
+h1 { font-size: 20px; margin: 0; text-transform: capitalize; }
 .badge { padding: 2px 9px; border-radius: 999px; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; }
-.badge.live { background: #dcfce7; color: #166534; }
+.badge.classifier { background: #dcfce7; color: #166534; }
 .badge.dry { background: #e5e7eb; color: #4b5563; }
 .meta { color: #6b7280; font-size: 13px; margin: 6px 0 18px; }
 .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 2px rgba(0,0,0,.05); }
@@ -236,22 +241,29 @@ document.addEventListener("keydown", (event) => {
 `;
 
 function renderHead(meta: ReportMeta): string {
+  const META_SEPARATOR = " · ";
+  const metaLine = [
+    `source ${escapeHtml(meta.source)}`,
+    `started ${escapeHtml(meta.startedAt.toISOString())}`,
+  ].join(META_SEPARATOR);
   return `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="${PARENT_CSP}">
-<title>Jev report — ${escapeHtml(meta.source)}</title>
+<title>Classifier report — ${escapeHtml(meta.source)}</title>
 <style>${STYLE}</style>
 </head>
 <body>
 <div class="wrap">
 <header class="page">
-<h1>Jev report</h1>
-<span class="badge ${meta.live ? "live" : "dry"}">${meta.live ? "live" : "dry run"}</span>
+<h1>Classifier report</h1>
 </header>
-<p class="meta">source ${escapeHtml(meta.source)} · started ${escapeHtml(meta.startedAt.toISOString())} · <span id="run-stats">timing…</span></p>
+<p class="meta">
+classifier <span class="badge ${meta.classifier ? "classifier" : "dry"}">${meta.classifier ? escapeHtml(meta.classifier) : "dry run"}</span>
+${META_SEPARATOR}${metaLine}${META_SEPARATOR}<span id="run-stats">timing…</span>
+</p>
 <div class="card">
 <div class="scroll">
 <table>
@@ -263,7 +275,7 @@ function renderHead(meta: ReportMeta): string {
 <col style="width:24%">
 <col style="width:20%">
 </colgroup>
-<thead><tr><th>Message-ID</th><th>From</th><th>Date</th><th>Subject</th><th>Body</th><th>Jev responses</th></tr></thead>
+<thead><tr><th>Message-ID</th><th>From</th><th>Date</th><th>Subject</th><th>Body</th><th>Classifier responses</th></tr></thead>
 <tbody>
 `;
 }
@@ -292,6 +304,7 @@ export async function openReport(options: {
   dir?: string;
 }): Promise<ReportWriter> {
   const target = reportPath({
+    classifier: options.meta.classifier,
     startedAt: options.meta.startedAt,
     dir: options.dir,
   });
