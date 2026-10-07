@@ -6,6 +6,7 @@ import {
   getListOfEmailAddresses,
   getListOfProperNouns,
   getListOfWords,
+  signatureRegion,
 } from "./helpers.ts";
 
 /** Base-26 lowercase letters for a non-negative index, so generated names differ. */
@@ -30,6 +31,13 @@ describe("displayName", () => {
     expect(displayName("<mick@example.com>")).toBe("");
     expect(displayName("")).toBe("");
   });
+
+  it("keeps apostrophes inside a name", () => {
+    expect(displayName("O'Brien Support <help@acme.example>")).toBe(
+      "O'Brien Support"
+    );
+    expect(displayName("'Quoted' <help@acme.example>")).toBe("Quoted");
+  });
 });
 
 describe("dedupe", () => {
@@ -39,6 +47,23 @@ describe("dedupe", () => {
       "b",
       "c",
     ]);
+  });
+
+  it("returns nothing for a non-positive limit", () => {
+    expect(dedupe(["a", "b"], 0)).toEqual([]);
+    expect(dedupe(["a", "b"], -1)).toEqual([]);
+  });
+});
+
+describe("signatureRegion", () => {
+  it("returns the last fifteen non-empty lines, joined", () => {
+    const lines = Array.from({ length: 20 }, (_, index) => `L${index}`);
+
+    const region = signatureRegion(lines.join("\n"));
+
+    expect(region).not.toContain("L4");
+    expect(region).toContain("L5");
+    expect(region).toContain("L19");
   });
 });
 

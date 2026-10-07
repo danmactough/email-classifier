@@ -75,4 +75,23 @@ describe("buildQuestions", () => {
       expect((description as string).trim().length).toBeGreaterThan(0);
     }
   });
+
+  it("keeps the signature name when a name-dense body exceeds the cap", () => {
+    const filler = Array.from(
+      { length: 120 },
+      (_, i) =>
+        `${String.fromCharCode(65 + (i % 26))}${String.fromCharCode(
+          97 + Math.floor(i / 26)
+        )}x`
+    );
+    const questions = buildQuestions({
+      email: email({
+        body: [...filler, "Thanks,", "Acme Cloud Team"].join("\n"),
+      }),
+    });
+
+    expect(Object.keys(questions.sender_name.criteria)).toContain(
+      "Acme Cloud Team"
+    );
+  });
 });

@@ -10,6 +10,7 @@ import {
   dedupe,
   getListOfEmailAddresses,
   getListOfProperNouns,
+  signatureRegion,
 } from "./helpers.ts";
 import type { ParsedEmail } from "./types.ts";
 
@@ -81,9 +82,12 @@ export function buildQuestions(options: {
   email: ParsedEmail;
 }): EmailQuestions {
   const candidateEmails = getListOfEmailAddresses(options.email.raw);
+  // Signature-tail names come first so a name-dense body cannot crowd the real
+  // sender name out of the MAX_CANDIDATES cap; the whole body still contributes.
   const candidateNames = dedupe(
     [
       options.email.from_parsed.name,
+      ...getListOfProperNouns(signatureRegion(options.email.body)),
       ...getListOfProperNouns(options.email.body),
     ],
     MAX_CANDIDATES
