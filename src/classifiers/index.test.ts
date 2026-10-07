@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createClassifier } from "./index.ts";
 import { JevClassifier } from "./jev.ts";
+import { OpenAIClassifier } from "./openai.ts";
 
 describe("createClassifier", () => {
   it("returns null unless CLASSIFIER is set to a name", () => {
@@ -26,6 +27,25 @@ describe("createClassifier", () => {
     expect(() =>
       createClassifier({ CLASSIFIER: "jev", TYPESAFE_API_KEY: "   " })
     ).toThrow("CLASSIFIER=jev requires TYPESAFE_API_KEY");
+  });
+
+  it("builds an OpenAIClassifier for CLASSIFIER=openai, trimmed", () => {
+    const classifier = createClassifier({
+      CLASSIFIER: " openai ",
+      OPENAPI_API_KEY: "test",
+    });
+
+    expect(classifier).toBeInstanceOf(OpenAIClassifier);
+    expect(classifier?.name).toBe("openai");
+  });
+
+  it("requires OPENAPI_API_KEY for the openai classifier", () => {
+    expect(() => createClassifier({ CLASSIFIER: "openai" })).toThrow(
+      "CLASSIFIER=openai requires OPENAPI_API_KEY"
+    );
+    expect(() =>
+      createClassifier({ CLASSIFIER: "openai", OPENAPI_API_KEY: "   " })
+    ).toThrow("CLASSIFIER=openai requires OPENAPI_API_KEY");
   });
 
   it("a dry run does not require TYPESAFE_API_KEY", () => {
